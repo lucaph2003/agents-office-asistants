@@ -32,6 +32,32 @@ com.lucapodesta.agentoffice
 └── infrastructure  adapters: REST, persistence, Ollama, Trello, n8n, config
 ```
 
+## Task lifecycle
+
+State changes are enforced by the domain; anything not drawn here is rejected with `INVALID_TASK_STATE`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> INBOX
+    INBOX --> PLANNED: Manager assigns
+    PLANNED --> IN_PROGRESS: worker starts
+    IN_PROGRESS --> REVIEW: output ready
+    REVIEW --> DONE: approved
+    REVIEW --> IN_PROGRESS: changes requested (attempt < max)
+    REVIEW --> FAILED: rejected / max attempts
+    IN_PROGRESS --> FAILED
+    INBOX --> BLOCKED: model unavailable
+    IN_PROGRESS --> BLOCKED
+    REVIEW --> BLOCKED
+    BLOCKED --> INBOX: resume (unassigned)
+    BLOCKED --> PLANNED: resume (assigned)
+    DONE --> [*]
+    FAILED --> [*]
+    CANCELLED --> [*]
+```
+
+Any non-terminal task can also be `CANCELLED`. Each agent invocation is stored as an `AgentExecution`, each verdict as a `Review`, and every step is appended to the `TaskEvent` audit trail.
+
 ## Tech stack
 
 Java 21 · Spring Boot 4 · Maven · PostgreSQL 18 · Flyway · Spring Data JPA · Docker Compose · JUnit 5 · Testcontainers

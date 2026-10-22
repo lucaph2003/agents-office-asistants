@@ -1,0 +1,13 @@
+package com.lucapodesta.agentoffice.domain.exception;
+
+public enum ErrorCode {
+    TASK_NOT_FOUND,
+    INVALID_TASK_STATE,
+    AGENT_NOT_AVAILABLE,
+    OLLAMA_UNAVAILABLE,
+    TRELLO_UNAVAILABLE,
+    TELEGRAM_NOTIFICATION_FAILED,
+    MAX_RETRIES_EXCEEDED,
+    VALIDATION_ERROR,
+    INTERNAL_ERROR
+}
