@@ -7,6 +7,7 @@ import com.lucapodesta.agentoffice.application.dto.TaskFilter;
 import com.lucapodesta.agentoffice.application.dto.TaskExecutionRequestedEvent;
 import com.lucapodesta.agentoffice.application.dto.TaskSubmittedEvent;
 import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.BoardCardRepository;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
@@ -20,7 +21,10 @@ import com.lucapodesta.agentoffice.domain.task.TaskEventType;
 import com.lucapodesta.agentoffice.domain.task.TaskStatus;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,15 +39,20 @@ public class TaskService {
 
     private final TaskRepository tasks;
     private final TaskEventRepository events;
+    private final TaskEventRecorder recorder;
+    private final BoardCardRepository boardCards;
     private final AgentExecutionRepository executions;
     private final ReviewRepository reviews;
     private final ApplicationEventPublisher publisher;
     private final Clock clock;
 
-    public TaskService(TaskRepository tasks, TaskEventRepository events, AgentExecutionRepository executions,
-                       ReviewRepository reviews, ApplicationEventPublisher publisher, Clock clock) {
+    public TaskService(TaskRepository tasks, TaskEventRepository events, TaskEventRecorder recorder,
+                       AgentExecutionRepository executions, ReviewRepository reviews, BoardCardRepository boardCards,
+                       ApplicationEventPublisher publisher, Clock clock) {
         this.tasks = tasks;
         this.events = events;
+        this.recorder = recorder;
+        this.boardCards = boardCards;
         this.executions = executions;
         this.reviews = reviews;
         this.publisher = publisher;
@@ -55,9 +64,8 @@ public class TaskService {
         Instant now = clock.instant();
         Task task = tasks.save(Task.create(command.title(), command.description(), command.priority(),
                 command.source(), command.externalReference(), command.requiresHumanApproval(), now));
-        events.append(TaskEvent.of(task.id(), TaskEventType.TASK_CREATED, TaskEvent.USER,
+        recorder.record(TaskEvent.of(task.id(), TaskEventType.TASK_CREATED, TaskEvent.USER,
                 "source=%s priority=%s".formatted(task.source(), task.priority()), now));
-        log.info("event=TASK_CREATED taskId={} source={} priority={}", task.id(), task.source(), task.priority());
         publisher.publishEvent(new TaskSubmittedEvent(task.id()));
         return task;
     }
@@ -80,8 +88,7 @@ public class TaskService {
                 "from=" + task.status(), now);
         task.cancel(now);
         Task saved = tasks.save(task);
-        events.append(cancelled);
-        log.info("event=TASK_CANCELLED taskId={}", id);
+        recorder.record(cancelled);
         return saved;
     }
 
@@ -99,7 +106,7 @@ public class TaskService {
                 Instant now = clock.instant();
                 task.resume(now);
                 task = tasks.save(task);
-                events.append(TaskEvent.of(id, TaskEventType.TASK_RESUMED, TaskEvent.USER, "to=" + task.status(), now));
+                recorder.record(TaskEvent.of(id, TaskEventType.TASK_RESUMED, TaskEvent.USER, "to=" + task.status(), now));
             }
             default -> throw new InvalidTaskStateException(id, task.status(), TaskStatus.IN_PROGRESS);
         }
@@ -118,6 +125,14 @@ public class TaskService {
     public List<Review> reviews(UUID id) {
         get(id);
         return reviews.findByTaskId(id);
+    }
+
+    /** Links to the board cards of the given tasks; tasks without a card are absent. */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> boardUrls(Collection<UUID> taskIds) {
+        Map<UUID, String> urls = new HashMap<>();
+        boardCards.findByTaskIds(taskIds).forEach((taskId, card) -> urls.put(taskId, card.url()));
+        return urls;
     }
 
     @Transactional(readOnly = true)

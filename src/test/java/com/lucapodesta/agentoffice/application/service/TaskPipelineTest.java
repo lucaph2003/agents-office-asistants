@@ -43,7 +43,8 @@ class TaskPipelineTest {
     private final InMemoryStore store = new InMemoryStore();
     private final ScriptedLanguageModel model = new ScriptedLanguageModel();
     private final TaskPipeline pipeline = new TaskPipeline(
-            store.taskRepository, store.executionRepository, store.reviewRepository, store.eventRepository,
+            store.taskRepository, store.executionRepository, store.reviewRepository,
+            new TaskEventRecorder(store.eventRepository, event -> { }),
             new AgentTeam(
                     new ManagerAgent(model, ScriptedLanguageModel.PROMPTS),
                     List.of(new WorkerAgent(AgentType.RESEARCH, model, ScriptedLanguageModel.PROMPTS),

@@ -3,6 +3,7 @@ package com.lucapodesta.agentoffice.domain.task;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Audit trail entry. Append-only; it records what happened, it does not drive state. */
@@ -29,5 +30,15 @@ public record TaskEvent(UUID id, UUID taskId, TaskEventType type, String actor, 
 
     public static String agent(AgentType type) {
         return "agent:" + type.name().toLowerCase();
+    }
+
+    /** The agent that produced this event, if the actor is an agent. */
+    public Optional<AgentType> agentActor() {
+        for (AgentType type : AgentType.values()) {
+            if (actor.equals(agent(type))) {
+                return Optional.of(type);
+            }
+        }
+        return Optional.empty();
     }
 }

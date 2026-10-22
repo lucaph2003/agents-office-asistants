@@ -8,9 +8,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.lucapodesta.agentoffice.application.dto.CreateTaskCommand;
+import com.lucapodesta.agentoffice.application.dto.TaskEventRecorded;
 import com.lucapodesta.agentoffice.application.dto.TaskExecutionRequestedEvent;
 import com.lucapodesta.agentoffice.application.dto.TaskSubmittedEvent;
 import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.BoardCardRepository;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
@@ -53,13 +55,17 @@ class TaskServiceTest {
     private ReviewRepository reviews;
 
     @Mock
+    private BoardCardRepository boardCards;
+
+    @Mock
     private ApplicationEventPublisher publisher;
 
     private TaskService service;
 
     @BeforeEach
     void setUp() {
-        service = new TaskService(tasks, events, executions, reviews, publisher, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new TaskService(tasks, events, new TaskEventRecorder(events, publisher), executions, reviews,
+                boardCards, publisher, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -76,6 +82,7 @@ class TaskServiceTest {
         assertThat(event.taskId()).isEqualTo(task.id());
         assertThat(event.details()).isEqualTo("source=TELEGRAM priority=HIGH");
         verify(publisher).publishEvent(new TaskSubmittedEvent(task.id()));
+        verify(publisher).publishEvent(new TaskEventRecorded(event));
     }
 
     @Test

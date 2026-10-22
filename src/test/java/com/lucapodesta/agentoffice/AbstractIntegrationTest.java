@@ -20,6 +20,6 @@ public abstract class AbstractIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
-        jdbc.execute("TRUNCATE task_events, reviews, agent_executions, tasks");
+        jdbc.execute("TRUNCATE task_board_cards, task_events, reviews, agent_executions, tasks");
     }
 }

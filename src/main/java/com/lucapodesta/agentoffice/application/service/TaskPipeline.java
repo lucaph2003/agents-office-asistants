@@ -8,7 +8,6 @@ import com.lucapodesta.agentoffice.application.agent.ReviewVerdict;
 import com.lucapodesta.agentoffice.application.agent.WorkerAgent;
 import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
-import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import com.lucapodesta.agentoffice.domain.exception.AgentOfficeException;
@@ -53,7 +52,7 @@ public class TaskPipeline {
     private final TaskRepository tasks;
     private final AgentExecutionRepository executions;
     private final ReviewRepository reviews;
-    private final TaskEventRepository events;
+    private final TaskEventRecorder events;
     private final AgentTeam team;
     private final ReviewPolicy reviewPolicy;
     private final int maxOutputAttempts;
@@ -61,7 +60,7 @@ public class TaskPipeline {
     private final Clock clock;
 
     public TaskPipeline(TaskRepository tasks, AgentExecutionRepository executions, ReviewRepository reviews,
-                        TaskEventRepository events, AgentTeam team, ReviewPolicy reviewPolicy,
+                        TaskEventRecorder events, AgentTeam team, ReviewPolicy reviewPolicy,
                         int maxOutputAttempts, TransactionOperations transactions, Clock clock) {
         this.tasks = tasks;
         this.executions = executions;
@@ -258,8 +257,7 @@ public class TaskPipeline {
     }
 
     private void append(TaskEvent event) {
-        events.append(event);
-        log.info("event={} actor={} details=\"{}\"", event.type(), event.actor(), event.details());
+        events.record(event);
     }
 
     private Revision lastRevision(Task task) {

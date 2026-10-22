@@ -42,6 +42,22 @@ agent-office:
       developer: ${OLLAMA_MODEL_DEVELOPER:${OLLAMA_MODEL:qwen3:8b}}
       reviewer: ${OLLAMA_MODEL_REVIEWER:${OLLAMA_MODEL:qwen3:8b}}
 
+  trello:
+    enabled: ${TRELLO_ENABLED:false}
+    base-url: https://api.trello.com
+    api-key: ${TRELLO_API_KEY:}
+    token: ${TRELLO_TOKEN:}
+    board-id: ${TRELLO_BOARD_ID:}
+    connect-timeout: 5s
+    read-timeout: 5s
+    lists:
+      inbox: ${TRELLO_LIST_INBOX:}
+      planned: ${TRELLO_LIST_PLANNED:}
+      in-progress: ${TRELLO_LIST_IN_PROGRESS:}
+      review: ${TRELLO_LIST_REVIEW:}
+      blocked: ${TRELLO_LIST_BLOCKED:}
+      done: ${TRELLO_LIST_DONE:}
+
 logging:
   pattern:
     correlation: '[%X{correlationId:-}] '

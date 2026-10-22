@@ -5,6 +5,7 @@ import com.lucapodesta.agentoffice.domain.task.Task;
 import com.lucapodesta.agentoffice.domain.task.TaskPriority;
 import com.lucapodesta.agentoffice.domain.task.TaskSource;
 import com.lucapodesta.agentoffice.domain.task.TaskStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -21,11 +22,13 @@ public record TaskResponse(
         int attempt,
         Instant createdAt,
         Instant updatedAt,
-        Instant completedAt) {
+        Instant completedAt,
+        @Schema(description = "Link to the task's card, when the board integration is enabled")
+        String boardUrl) {
 
-    static TaskResponse from(Task task) {
+    static TaskResponse from(Task task, String boardUrl) {
         return new TaskResponse(task.id(), task.title(), task.description(), task.status(), task.priority(),
                 task.assignedAgent(), task.source(), task.externalReference(), task.requiresHumanApproval(),
-                task.attempt(), task.createdAt(), task.updatedAt(), task.completedAt());
+                task.attempt(), task.createdAt(), task.updatedAt(), task.completedAt(), boardUrl);
     }
 }

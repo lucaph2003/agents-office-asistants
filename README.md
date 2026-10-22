@@ -125,6 +125,20 @@ Opt-in check against a real Ollama (not part of CI):
 OLLAMA_SMOKE_TEST=true ./mvnw verify -Dit.test=OllamaSmokeIT
 ```
 
+## Trello
+
+Trello is the visual office: one card per task, moved across `📥 Inbox → 📋 Planned → 🤖 In Progress → 👀 Review → ✅ Done` (plus `⛔ Blocked`) as the task progresses, with a comment for each meaningful step. Failed and cancelled tasks end in Done with `[FAILED]` / `[CANCELLED]` in the title.
+
+The board mirrors the task; it never drives it. Each audit event triggers a sync after its transaction commits, and every update renders the full current state, so a missed call is repaired by the next one. If Trello is down the task keeps going and the problem is recorded as `TRELLO_SYNC_FAILED`.
+
+Set up the board once (creates it with the six lists, or reads an existing one with `TRELLO_BOARD_ID`) and paste the output into `.env`:
+
+```bash
+TRELLO_API_KEY=... TRELLO_TOKEN=... scripts/trello-setup.sh
+```
+
+The integration is off unless `TRELLO_ENABLED=true`; credentials are sent in the `Authorization` header, never in URLs.
+
 ## API
 
 Interactive docs: <http://localhost:8080/swagger-ui.html> (OpenAPI JSON at `/v3/api-docs`).

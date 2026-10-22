@@ -1,8 +1,6 @@
 package com.lucapodesta.agentoffice;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.containing;
-import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
@@ -23,7 +21,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The demo flow end to end: a task created through the API is routed by the Manager, executed by
@@ -35,10 +32,6 @@ class TaskLifecycleE2EIT extends AbstractIntegrationTest {
     @RegisterExtension
     static WireMockExtension ollama = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
 
-    private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final String MANAGER = "You are the Manager of Agent Office";
-    private static final String DEVELOPER = "You are the Developer agent";
-    private static final String REVIEWER = "You are the Reviewer of Agent Office";
 
     @DynamicPropertySource
     static void pipelineAgainstStubbedOllama(DynamicPropertyRegistry registry) {
@@ -52,18 +45,14 @@ class TaskLifecycleE2EIT extends AbstractIntegrationTest {
 
     @BeforeEach
     void stubAgents() {
-        ollama.stubFor(post("/api/chat").withRequestBody(containing(MANAGER)).willReturn(answer(Map.of(
-                "agent", "DEVELOPER", "priority", "HIGH", "reason", "Needs a technical migration plan"))));
-        ollama.stubFor(post("/api/chat").withRequestBody(containing(DEVELOPER)).willReturn(answer(Map.of(
-                "summary", "Incremental migration in three phases",
-                "content", "# Java 21 migration\n1. Upgrade the build\n2. Fix deprecations\n3. Roll out"))));
-        ollama.stubFor(post("/api/chat").withRequestBody(containing(REVIEWER))
+        OllamaStubs.happyPath(ollama);
+        ollama.stubFor(OllamaStubs.agent(OllamaStubs.REVIEWER)
                 .inScenario("review").whenScenarioStateIs(STARTED)
-                .willReturn(answer(Map.of("verdict", "CHANGES_REQUESTED", "feedback", "Add a rollback plan")))
+                .willReturn(OllamaStubs.answer(Map.of("verdict", "CHANGES_REQUESTED", "feedback", "Add a rollback plan")))
                 .willSetStateTo("second review"));
-        ollama.stubFor(post("/api/chat").withRequestBody(containing(REVIEWER))
+        ollama.stubFor(OllamaStubs.agent(OllamaStubs.REVIEWER)
                 .inScenario("review").whenScenarioStateIs("second review")
-                .willReturn(answer(Map.of("verdict", "APPROVED", "feedback", "Clear and actionable"))));
+                .willReturn(OllamaStubs.answer(Map.of("verdict", "APPROVED", "feedback", "Clear and actionable"))));
     }
 
     @Test
@@ -140,13 +129,5 @@ class TaskLifecycleE2EIT extends AbstractIntegrationTest {
     private String statusOf(String id) throws Exception {
         return JsonPath.read(mvc.get().uri("/api/v1/tasks/{id}", id).exchange().getResponse().getContentAsString(),
                 "$.status");
-    }
-
-    private static com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder answer(Map<String, String> reply) {
-        String content = JSON.writeValueAsString(reply);
-        return okJson(JSON.writeValueAsString(Map.of(
-                "model", "qwen3:8b",
-                "message", Map.of("role", "assistant", "content", content),
-                "done", true)));
     }
 }

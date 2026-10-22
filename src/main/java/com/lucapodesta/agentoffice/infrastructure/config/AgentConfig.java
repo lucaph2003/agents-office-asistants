@@ -10,12 +10,14 @@ import com.lucapodesta.agentoffice.application.port.out.PromptCatalog;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
+import com.lucapodesta.agentoffice.application.service.TaskEventRecorder;
 import com.lucapodesta.agentoffice.application.service.TaskPipeline;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import com.lucapodesta.agentoffice.domain.review.ReviewPolicy;
 import java.time.Clock;
 import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,10 +36,15 @@ class AgentConfig {
     }
 
     @Bean
+    TaskEventRecorder taskEventRecorder(TaskEventRepository events, ApplicationEventPublisher publisher) {
+        return new TaskEventRecorder(events, publisher);
+    }
+
+    @Bean
     TaskPipeline taskPipeline(TaskRepository tasks, AgentExecutionRepository executions, ReviewRepository reviews,
-                              TaskEventRepository events, AgentTeam team, PipelineProperties properties,
+                              TaskEventRecorder recorder, AgentTeam team, PipelineProperties properties,
                               TransactionTemplate transactionTemplate, Clock clock) {
-        return new TaskPipeline(tasks, executions, reviews, events, team,
+        return new TaskPipeline(tasks, executions, reviews, recorder, team,
                 new ReviewPolicy(properties.maxAttempts()), properties.maxOutputAttempts(),
                 transactionTemplate, clock);
     }

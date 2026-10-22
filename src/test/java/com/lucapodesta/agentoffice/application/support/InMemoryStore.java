@@ -4,6 +4,8 @@ import com.lucapodesta.agentoffice.application.dto.PageQuery;
 import com.lucapodesta.agentoffice.application.dto.PageResult;
 import com.lucapodesta.agentoffice.application.dto.TaskFilter;
 import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.BoardCard;
+import com.lucapodesta.agentoffice.application.port.out.BoardCardRepository;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
@@ -13,6 +15,7 @@ import com.lucapodesta.agentoffice.domain.task.Task;
 import com.lucapodesta.agentoffice.domain.task.TaskEvent;
 import com.lucapodesta.agentoffice.domain.task.TaskEventType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ public class InMemoryStore {
     private final Map<UUID, AgentExecution> executions = new LinkedHashMap<>();
     private final List<Review> reviews = new ArrayList<>();
     private final List<TaskEvent> events = new ArrayList<>();
+    private final Map<UUID, BoardCard> boardCards = new LinkedHashMap<>();
 
     public final TaskRepository taskRepository = new TaskRepository() {
         @Override
@@ -83,6 +87,25 @@ public class InMemoryStore {
         @Override
         public List<TaskEvent> findByTaskId(UUID taskId) {
             return events.stream().filter(e -> e.taskId().equals(taskId)).toList();
+        }
+    };
+
+    public final BoardCardRepository boardCardRepository = new BoardCardRepository() {
+        @Override
+        public void save(UUID taskId, BoardCard card) {
+            boardCards.put(taskId, card);
+        }
+
+        @Override
+        public Optional<BoardCard> findByTaskId(UUID taskId) {
+            return Optional.ofNullable(boardCards.get(taskId));
+        }
+
+        @Override
+        public Map<UUID, BoardCard> findByTaskIds(Collection<UUID> taskIds) {
+            Map<UUID, BoardCard> found = new LinkedHashMap<>();
+            taskIds.forEach(id -> findByTaskId(id).ifPresent(card -> found.put(id, card)));
+            return found;
         }
     };
 

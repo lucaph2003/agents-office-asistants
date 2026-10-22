@@ -16,5 +16,6 @@ public enum TaskEventType {
     TASK_FAILED,
     TASK_CANCELLED,
     TRELLO_UPDATED,
+    TRELLO_SYNC_FAILED,
     USER_NOTIFIED
 }

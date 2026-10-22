@@ -1,6 +1,7 @@
 package com.lucapodesta.agentoffice.infrastructure.web;
 
 import com.lucapodesta.agentoffice.application.dto.PageQuery;
+import com.lucapodesta.agentoffice.application.dto.PageResult;
 import com.lucapodesta.agentoffice.application.dto.TaskFilter;
 import com.lucapodesta.agentoffice.application.service.TaskService;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
@@ -17,6 +18,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,7 +49,7 @@ class TaskController {
     ResponseEntity<TaskResponse> create(@Valid @RequestBody CreateTaskRequest request) {
         Task task = taskService.create(request.toCommand());
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(task.id()).toUri();
-        return ResponseEntity.created(location).body(TaskResponse.from(task));
+        return ResponseEntity.created(location).body(respond(task));
     }
 
     @GetMapping("/{id}")
@@ -56,7 +58,7 @@ class TaskController {
     @ApiResponse(responseCode = "404", description = "TASK_NOT_FOUND",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     TaskResponse get(@PathVariable UUID id) {
-        return TaskResponse.from(taskService.get(id));
+        return respond(taskService.get(id));
     }
 
     @GetMapping
@@ -67,8 +69,9 @@ class TaskController {
             @RequestParam(required = false) TaskPriority priority,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(PageQuery.MAX_SIZE) int size) {
-        return PageResponse.from(taskService.list(new TaskFilter(status, agent, priority), new PageQuery(page, size))
-                .map(TaskResponse::from));
+        PageResult<Task> tasks = taskService.list(new TaskFilter(status, agent, priority), new PageQuery(page, size));
+        Map<UUID, String> boardUrls = taskService.boardUrls(tasks.content().stream().map(Task::id).toList());
+        return PageResponse.from(tasks.map(task -> TaskResponse.from(task, boardUrls.get(task.id()))));
     }
 
     @PostMapping("/{id}/cancel")
@@ -79,7 +82,7 @@ class TaskController {
     @ApiResponse(responseCode = "409", description = "INVALID_TASK_STATE or CONCURRENT_MODIFICATION",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     TaskResponse cancel(@PathVariable UUID id) {
-        return TaskResponse.from(taskService.cancel(id));
+        return respond(taskService.cancel(id));
     }
 
     @PostMapping("/{id}/execute")
@@ -91,7 +94,7 @@ class TaskController {
     @ApiResponse(responseCode = "409", description = "INVALID_TASK_STATE",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     ResponseEntity<TaskResponse> execute(@PathVariable UUID id) {
-        return ResponseEntity.accepted().body(TaskResponse.from(taskService.execute(id)));
+        return ResponseEntity.accepted().body(respond(taskService.execute(id)));
     }
 
     @GetMapping("/{id}/executions")
@@ -116,5 +119,9 @@ class TaskController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     List<TaskEventResponse> events(@PathVariable UUID id) {
         return taskService.history(id).stream().map(TaskEventResponse::from).toList();
+    }
+
+    private TaskResponse respond(Task task) {
+        return TaskResponse.from(task, taskService.boardUrls(List.of(task.id())).get(task.id()));
     }
 }
