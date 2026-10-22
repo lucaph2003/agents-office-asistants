@@ -9,6 +9,11 @@ public abstract class AgentOfficeException extends RuntimeException {
         this.code = code;
     }
 
+    protected AgentOfficeException(ErrorCode code, String message, Throwable cause) {
+        super(message, cause);
+        this.code = code;
+    }
+
     public ErrorCode code() {
         return code;
     }

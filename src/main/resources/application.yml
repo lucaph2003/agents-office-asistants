@@ -18,6 +18,21 @@ spring:
   flyway:
     locations: classpath:db/migration
 
+agent-office:
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    connect-timeout: 5s
+    read-timeout: ${OLLAMA_READ_TIMEOUT:180s}
+    max-attempts: 2
+    retry-backoff: 2s
+    temperature: 0.2
+    think: false
+    models:
+      manager: ${OLLAMA_MODEL_MANAGER:${OLLAMA_MODEL:qwen3:8b}}
+      research: ${OLLAMA_MODEL_RESEARCH:${OLLAMA_MODEL:qwen3:8b}}
+      developer: ${OLLAMA_MODEL_DEVELOPER:${OLLAMA_MODEL:qwen3:8b}}
+      reviewer: ${OLLAMA_MODEL_REVIEWER:${OLLAMA_MODEL:qwen3:8b}}
+
 logging:
   pattern:
     correlation: '[%X{correlationId:-}] '

@@ -76,6 +76,31 @@ The `local` profile reads the same `.env` as Docker Compose. PostgreSQL is publi
 
 Health check: <http://localhost:8080/actuator/health>
 
+## Ollama
+
+Agents never talk to Ollama directly: they depend on `LanguageModelPort`, and `OllamaLanguageModelAdapter` is the only implementation today. Another provider would be one more adapter.
+
+```bash
+ollama pull qwen3:8b
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Use `http://host.docker.internal:11434` when the app runs in Docker and Ollama on the host |
+| `OLLAMA_MODEL` | `qwen3:8b` | Model for every agent |
+| `OLLAMA_MODEL_MANAGER`, `_RESEARCH`, `_DEVELOPER`, `_REVIEWER` | `OLLAMA_MODEL` | Per-agent override |
+| `OLLAMA_READ_TIMEOUT` | `180s` | Max time to wait for one answer |
+
+Connection failures and 5xx responses are retried once; timeouts are not, since the model already had its full budget. A missing model fails with `AGENT_NOT_AVAILABLE` and the exact `ollama pull` command.
+
+System prompts live in [`src/main/resources/prompts`](src/main/resources/prompts), one file per agent. Each declares a `version` in its front matter, and that version is stored with every execution. All prompts ask for a JSON answer.
+
+Opt-in check against a real Ollama (not part of CI):
+
+```bash
+OLLAMA_SMOKE_TEST=true ./mvnw verify -Dit.test=OllamaSmokeIT
+```
+
 ## API
 
 Interactive docs: <http://localhost:8080/swagger-ui.html> (OpenAPI JSON at `/v3/api-docs`).
