@@ -1,0 +1,4 @@
+# Datasource is provided by Testcontainers via @ServiceConnection.
+spring:
+  main:
+    banner-mode: off

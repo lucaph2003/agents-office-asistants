@@ -1,0 +1,14 @@
+# Local development against `docker compose up postgres`.
+# Reads the same .env used by Docker Compose, so both stay in sync.
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/agent_office}
+    username: ${DB_USERNAME:agent_office}
+    password: ${DB_PASSWORD:agent_office}
+
+management:
+  endpoint:
+    health:
+      show-details: always
