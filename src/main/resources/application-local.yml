@@ -8,6 +8,10 @@ spring:
     username: ${DB_USERNAME:agent_office}
     password: ${DB_PASSWORD:agent_office}
 
+agent-office:
+  security:
+    api-key: ${AGENT_OFFICE_API_KEY:local-dev-api-key-change-me}
+
 management:
   endpoint:
     health:

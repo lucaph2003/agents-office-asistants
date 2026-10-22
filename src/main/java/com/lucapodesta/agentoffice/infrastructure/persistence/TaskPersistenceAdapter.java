@@ -66,6 +66,12 @@ class TaskPersistenceAdapter implements TaskRepository {
             if (filter.priority() != null) {
                 predicates.add(cb.equal(root.get("priority"), filter.priority()));
             }
+            if (filter.source() != null) {
+                predicates.add(cb.equal(root.get("source"), filter.source()));
+            }
+            if (filter.externalReference() != null) {
+                predicates.add(cb.equal(root.get("externalReference"), filter.externalReference()));
+            }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
     }

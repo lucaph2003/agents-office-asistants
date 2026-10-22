@@ -20,3 +20,6 @@ target/
 
 # Logs
 *.log
+
+# n8n credentials with real secrets (copy of n8n/credentials.example.json)
+n8n/credentials.json

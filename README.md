@@ -139,6 +139,20 @@ TRELLO_API_KEY=... TRELLO_TOKEN=... scripts/trello-setup.sh
 
 The integration is off unless `TRELLO_ENABLED=true`; credentials are sent in the `Authorization` header, never in URLs.
 
+## Telegram and n8n
+
+The user talks to a Telegram bot; n8n turns each command into an API call and sends finished tasks back to the
+chat. n8n holds no business logic: it only translates between Telegram and the REST API.
+
+| Command | What happens |
+|---|---|
+| `/task <description>` | Creates a task; the reply includes its id and Trello link |
+| `/tasks`, `/status <id>` | Lists this chat's tasks / shows one |
+| `/cancel <id>`, `/retry <id>` | Cancels a task / resumes a blocked one |
+
+When a task finishes, fails or gets blocked, Agent Office calls an n8n webhook and the result arrives in the chat
+that created it. Setup, credentials and security are described in [docs/n8n.md](docs/n8n.md).
+
 ## API
 
 Interactive docs: <http://localhost:8080/swagger-ui.html> (OpenAPI JSON at `/v3/api-docs`).
@@ -147,15 +161,18 @@ Interactive docs: <http://localhost:8080/swagger-ui.html> (OpenAPI JSON at `/v3/
 |---|---|---|
 | `POST` | `/api/v1/tasks` | Create a task |
 | `GET` | `/api/v1/tasks/{id}` | Get a task |
-| `GET` | `/api/v1/tasks?status=&agent=&priority=&page=&size=` | List tasks, newest first |
+| `GET` | `/api/v1/tasks?status=&agent=&priority=&source=&externalReference=&page=&size=` | List tasks, newest first |
 | `POST` | `/api/v1/tasks/{id}/execute` | Run a waiting task or resume a blocked one |
 | `POST` | `/api/v1/tasks/{id}/cancel` | Cancel a non-finished task |
 | `GET` | `/api/v1/tasks/{id}/executions` | Every agent invocation with model, prompt version and output |
 | `GET` | `/api/v1/tasks/{id}/reviews` | Reviewer verdicts |
 | `GET` | `/api/v1/tasks/{id}/events` | Audit trail |
 
+All `/api/**` endpoints require the `X-Api-Key` header (`AGENT_OFFICE_API_KEY`); health, info and the API docs are public.
+
 ```bash
 curl -X POST localhost:8080/api/v1/tasks \
+  -H "X-Api-Key: $AGENT_OFFICE_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"title": "Prepare Java migration proposal", "description": "Create a plan to migrate an application from Java 11 to Java 21"}'
 ```

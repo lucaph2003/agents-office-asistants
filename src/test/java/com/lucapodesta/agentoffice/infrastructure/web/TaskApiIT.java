@@ -41,6 +41,9 @@ class TaskApiIT extends AbstractIntegrationTest {
         create(task("first", "LOW"));
         create(task("second", "HIGH"));
         create(task("third", "HIGH"));
+        create("""
+                {"title": "from telegram", "description": "Some work", "source": "TELEGRAM", "externalReference": "chat-7"}
+                """);
 
         MvcTestResult high = mvc.get().uri("/api/v1/tasks?priority=HIGH&size=1").exchange();
 
@@ -52,7 +55,11 @@ class TaskApiIT extends AbstractIntegrationTest {
         assertThat(mvc.get().uri("/api/v1/tasks?status=DONE"))
                 .bodyJson().extractingPath("$.totalElements").asNumber().isEqualTo(0);
         assertThat(mvc.get().uri("/api/v1/tasks"))
-                .bodyJson().extractingPath("$.totalElements").asNumber().isEqualTo(3);
+                .bodyJson().extractingPath("$.totalElements").asNumber().isEqualTo(4);
+        assertThat(mvc.get().uri("/api/v1/tasks?source=TELEGRAM&externalReference=chat-7"))
+                .bodyJson().extractingPath("$.content[*].title").asArray().containsExactly("from telegram");
+        assertThat(mvc.get().uri("/api/v1/tasks?externalReference=chat-unknown"))
+                .bodyJson().extractingPath("$.totalElements").asNumber().isEqualTo(0);
     }
 
     @Test

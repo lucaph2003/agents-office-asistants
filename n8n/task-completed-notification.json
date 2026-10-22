@@ -1,0 +1,97 @@
+{
+  "name": "Agent Office · Task completed notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-office/task-completed",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "391a51e5-9746-54ac-a483-6fb38f60669d",
+      "name": "Agent Office webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "b0046da4-7db9-5d5d-8bd6-4296e1707564",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "agent-office-webhook-token",
+          "name": "Agent Office webhook token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Turns an Agent Office notification into a Telegram message for the chat that created the task.\n// Tasks that did not come from Telegram produce no message.\nconst escape = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nreturn $input.all()\n  .map((item) => item.json.body)\n  .filter((n) => n?.source === 'TELEGRAM' && n.externalReference)\n  .map((n) => {\n    const summary = n.summary ? ['', '<b>Summary</b>', escape(n.summary)] : [];\n    const templates = {\n      TASK_COMPLETED: ['✅ <b>Task completed</b>', '', `Title: ${escape(n.title)}`, `Agent: ${n.agent}`,\n        `Review: ${n.review ?? '—'}`, ...summary],\n      TASK_FAILED: ['❌ <b>Task failed</b>', '', `Title: ${escape(n.title)}`, `Reason: ${escape(n.reason)}`],\n      TASK_BLOCKED: ['⛔ <b>Task blocked</b>', '', `Title: ${escape(n.title)}`, `Reason: ${escape(n.reason)}`,\n        '', `Resume it with /retry ${n.taskId}`],\n      HUMAN_APPROVAL_REQUESTED: ['🙋 <b>Waiting for your approval</b>', '', `Title: ${escape(n.title)}`,\n        `Agent: ${n.agent}`, ...summary],\n    };\n    const lines = templates[n.event] ?? [`ℹ️ ${escape(n.event)}`, '', `Title: ${escape(n.title)}`];\n    lines.push('', `ID: <code>${n.taskId}</code>`);\n    if (n.boardUrl) {\n      lines.push(`Trello: ${escape(n.boardUrl)}`);\n    }\n    return { json: { chatId: n.externalReference, text: lines.join('\\n') } };\n  });\n"
+      },
+      "id": "657aa2e8-d048-5dca-98a7-8e6a616fcb54",
+      "name": "Format notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "b930e355-bda6-521c-9a6b-0ae7b5945228",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "agent-office-telegram",
+          "name": "Agent Office Telegram bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Agent Office webhook": {
+      "main": [
+        [
+          {
+            "node": "Format notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format notification": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false,
+  "id": "agentOfficeTaskCompleted"
+}

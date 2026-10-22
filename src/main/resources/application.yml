@@ -24,6 +24,8 @@ spring:
     locations: classpath:db/migration
 
 agent-office:
+  security:
+    api-key: ${AGENT_OFFICE_API_KEY}
   pipeline:
     auto-start: ${PIPELINE_AUTO_START:true}
     max-attempts: 3
@@ -57,6 +59,14 @@ agent-office:
       review: ${TRELLO_LIST_REVIEW:}
       blocked: ${TRELLO_LIST_BLOCKED:}
       done: ${TRELLO_LIST_DONE:}
+
+  notifications:
+    n8n:
+      enabled: ${N8N_NOTIFICATIONS_ENABLED:false}
+      webhook-url: ${N8N_TASK_COMPLETED_WEBHOOK_URL:}
+      token: ${N8N_WEBHOOK_TOKEN:}
+      connect-timeout: 3s
+      read-timeout: 5s
 
 logging:
   pattern:

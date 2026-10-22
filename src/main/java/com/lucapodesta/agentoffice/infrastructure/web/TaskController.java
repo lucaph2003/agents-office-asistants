@@ -7,8 +7,10 @@ import com.lucapodesta.agentoffice.application.service.TaskService;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import com.lucapodesta.agentoffice.domain.task.Task;
 import com.lucapodesta.agentoffice.domain.task.TaskPriority;
+import com.lucapodesta.agentoffice.domain.task.TaskSource;
 import com.lucapodesta.agentoffice.domain.task.TaskStatus;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -67,9 +69,12 @@ class TaskController {
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) AgentType agent,
             @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) TaskSource source,
+            @Parameter(description = "Identifier in the source system, e.g. a Telegram chat id")
+            @RequestParam(required = false) String externalReference,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(PageQuery.MAX_SIZE) int size) {
-        PageResult<Task> tasks = taskService.list(new TaskFilter(status, agent, priority), new PageQuery(page, size));
+        PageResult<Task> tasks = taskService.list(new TaskFilter(status, agent, priority, source, externalReference), new PageQuery(page, size));
         Map<UUID, String> boardUrls = taskService.boardUrls(tasks.content().stream().map(Task::id).toList());
         return PageResponse.from(tasks.map(task -> TaskResponse.from(task, boardUrls.get(task.id()))));
     }

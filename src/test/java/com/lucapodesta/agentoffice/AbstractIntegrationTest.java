@@ -12,7 +12,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, ApiKeyTestConfiguration.class})
 public abstract class AbstractIntegrationTest {
 
     @Autowired

@@ -1,0 +1,229 @@
+{
+  "name": "Agent Office · Telegram task intake",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "ef515ff9-e08f-5236-8787-cbf45dae1698",
+      "name": "Telegram trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "9f065127-8923-515f-9fbb-76081a2cc9e8",
+      "credentials": {
+        "telegramApi": {
+          "id": "agent-office-telegram",
+          "name": "Agent Office Telegram bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Turns a Telegram message into an Agent Office API call, or into a direct reply.\nconst message = $json.message ?? {};\nconst chatId = String(message.chat?.id ?? '');\nconst text = (message.text ?? '').trim();\nconst allowedChats = String($env.TELEGRAM_ALLOWED_CHAT_IDS ?? '')\n  .split(',').map((id) => id.trim()).filter(Boolean);\n\nconst HELP = [\n  '<b>Agent Office</b>',\n  '',\n  '/task &lt;description&gt; — create a task',\n  '/tasks — your latest tasks',\n  '/status &lt;taskId&gt; — task details',\n  '/cancel &lt;taskId&gt; — cancel a task',\n  '/retry &lt;taskId&gt; — resume a blocked task',\n].join('\\n');\n\nconst reply = (replyText) => ({ json: { chatId, needsApi: false, text: replyText } });\nconst call = (command, method, path, body = null) => ({\n  json: { chatId, needsApi: true, command, method, path, body, correlationId: `telegram-${$json.update_id}` },\n});\n\n// Only explicitly allowed chats may spend the local GPU. No list means nobody.\nif (!allowedChats.includes(chatId)) {\n  return reply('⛔ This chat is not allowed to use Agent Office.');\n}\n\nconst match = text.match(/^\\/(\\w+)(?:@\\w+)?(?:\\s+([\\s\\S]*))?$/);\nif (!match) {\n  return reply(HELP);\n}\nconst command = match[1].toLowerCase();\nconst argument = (match[2] ?? '').trim();\nconst TASK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\nswitch (command) {\n  case 'task': {\n    if (!argument) {\n      return reply('Usage: /task &lt;description&gt;');\n    }\n    const firstLine = argument.split('\\n')[0];\n    const title = firstLine.length > 80 ? `${firstLine.slice(0, 77)}...` : firstLine;\n    return call('task', 'POST', '/api/v1/tasks',\n      { title, description: argument, source: 'TELEGRAM', externalReference: chatId });\n  }\n  case 'tasks':\n    return call('tasks', 'GET',\n      `/api/v1/tasks?source=TELEGRAM&externalReference=${encodeURIComponent(chatId)}&size=10`);\n  case 'status':\n  case 'cancel':\n  case 'retry': {\n    if (!TASK_ID.test(argument)) {\n      return reply(`Usage: /${command} &lt;taskId&gt;`);\n    }\n    const paths = {\n      status: ['GET', `/api/v1/tasks/${argument}`],\n      cancel: ['POST', `/api/v1/tasks/${argument}/cancel`],\n      retry: ['POST', `/api/v1/tasks/${argument}/execute`],\n    };\n    return call(command, ...paths[command]);\n  }\n  default:\n    return reply(HELP);\n}\n"
+      },
+      "id": "16340b20-f8fd-5dc4-85d4-014bedbc8fef",
+      "name": "Parse command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8fc46586-e468-5fc1-be55-5140843708cf",
+              "leftValue": "={{ $json.needsApi }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "33d95346-85bf-5701-b67f-2b73410e2787",
+      "name": "Needs the API?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $env.AGENT_OFFICE_API_URL }}{{ $json.path }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Correlation-Id",
+              "value": "={{ $json.correlationId }}"
+            }
+          ]
+        },
+        "sendBody": "={{ $json.method === 'POST' && $json.body !== null }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "5f69787d-d01d-560b-a51d-096928080fe8",
+      "name": "Call Agent Office",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        200
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "agent-office-api-key",
+          "name": "Agent Office API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Turns the Agent Office API response into a Telegram message (HTML parse mode).\nconst request = $('Parse command').item.json;\nconst { statusCode, body, error } = $json;\nconst escape = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst boardLink = (url) => (url ? `\\n\\nTrello: ${escape(url)}` : '');\nconst describe = (task) => [\n  `ID: <code>${task.id}</code>`,\n  `Status: ${task.status}`,\n  `Assigned: ${task.assignedAgent ?? 'Manager is routing'}`,\n  `Priority: ${task.priority}`,\n].join('\\n');\n\nfunction message() {\n  if (error || !statusCode) {\n    return '⚠️ Agent Office is not reachable right now. Try again in a moment.';\n  }\n  if (statusCode === 401) {\n    return '⚠️ n8n is not authorized to call Agent Office. Check the \"Agent Office API key\" credential.';\n  }\n  if (statusCode === 404) {\n    return '🔎 Task not found.';\n  }\n  if (statusCode >= 400) {\n    return `⚠️ ${escape(body?.message ?? `Request failed with status ${statusCode}`)}`;\n  }\n  switch (request.command) {\n    case 'task':\n      return `✅ <b>Task created</b>\\n\\n${describe(body)}${boardLink(body.boardUrl)}`;\n    case 'status':\n      return `📋 <b>${escape(body.title)}</b>\\n\\n${describe(body)}\\nAttempts: ${body.attempt}${boardLink(body.boardUrl)}`;\n    case 'cancel':\n      return `🚫 Task cancelled\\n\\n<code>${body.id}</code>`;\n    case 'retry':\n      return `▶️ Task resumed (${body.status})\\n\\n<code>${body.id}</code>`;\n    case 'tasks':\n      if (!body.content?.length) {\n        return 'No tasks yet. Create one with /task &lt;description&gt;';\n      }\n      return ['<b>Your latest tasks</b>', '',\n        ...body.content.map((task) => `• ${task.status} — ${escape(task.title)}\\n  <code>${task.id}</code>`)].join('\\n');\n    default:\n      return 'Done.';\n  }\n}\n\nreturn { json: { chatId: request.chatId, text: message() } };\n"
+      },
+      "id": "cda49095-cb51-5cd7-b3e1-c869dffb3d8a",
+      "name": "Format reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "a45caaf6-6aad-5e3a-ba62-9f1e80f86dd3",
+      "name": "Send reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "agent-office-telegram",
+          "name": "Agent Office Telegram bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse command": {
+      "main": [
+        [
+          {
+            "node": "Needs the API?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs the API?": {
+      "main": [
+        [
+          {
+            "node": "Call Agent Office",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Agent Office": {
+      "main": [
+        [
+          {
+            "node": "Format reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format reply": {
+      "main": [
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false,
+  "id": "agentOfficeTelegramIntake"
+}
