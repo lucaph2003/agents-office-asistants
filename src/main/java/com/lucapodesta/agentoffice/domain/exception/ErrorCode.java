@@ -3,6 +3,7 @@ package com.lucapodesta.agentoffice.domain.exception;
 public enum ErrorCode {
     TASK_NOT_FOUND,
     INVALID_TASK_STATE,
+    CONCURRENT_MODIFICATION,
     AGENT_NOT_AVAILABLE,
     OLLAMA_UNAVAILABLE,
     TRELLO_UNAVAILABLE,

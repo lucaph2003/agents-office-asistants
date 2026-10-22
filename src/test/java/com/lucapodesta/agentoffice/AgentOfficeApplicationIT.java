@@ -4,17 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Import(TestcontainersConfiguration.class)
-class AgentOfficeApplicationIT {
+class AgentOfficeApplicationIT extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvcTester mvc;
@@ -26,5 +18,15 @@ class AgentOfficeApplicationIT {
                 .bodyJson()
                 .extractingPath("$.status")
                 .isEqualTo("UP");
+    }
+
+    @Test
+    void openApiDocumentDescribesTaskEndpoints() {
+        assertThat(mvc.get().uri("/v3/api-docs"))
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.paths")
+                .asMap()
+                .containsKeys("/api/v1/tasks", "/api/v1/tasks/{id}", "/api/v1/tasks/{id}/cancel", "/api/v1/tasks/{id}/events");
     }
 }

@@ -76,6 +76,35 @@ The `local` profile reads the same `.env` as Docker Compose. PostgreSQL is publi
 
 Health check: <http://localhost:8080/actuator/health>
 
+## API
+
+Interactive docs: <http://localhost:8080/swagger-ui.html> (OpenAPI JSON at `/v3/api-docs`).
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/v1/tasks` | Create a task |
+| `GET` | `/api/v1/tasks/{id}` | Get a task |
+| `GET` | `/api/v1/tasks?status=&agent=&priority=&page=&size=` | List tasks, newest first |
+| `POST` | `/api/v1/tasks/{id}/cancel` | Cancel a non-finished task |
+| `GET` | `/api/v1/tasks/{id}/events` | Audit trail |
+
+```bash
+curl -X POST localhost:8080/api/v1/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "Prepare Java migration proposal", "description": "Create a plan to migrate an application from Java 11 to Java 21"}'
+```
+
+Every response carries an `X-Correlation-Id` header (the caller's, or a generated one), which also appears in the logs. Errors share one shape:
+
+```json
+{
+  "code": "TASK_NOT_FOUND",
+  "message": "Task 4f0c... was not found",
+  "correlationId": "3f6d2a7e-...",
+  "timestamp": "2026-01-01T10:00:00Z"
+}
+```
+
 ## Testing
 
 ```bash

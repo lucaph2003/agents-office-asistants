@@ -54,6 +54,20 @@ public class AgentExecution {
                 Objects.requireNonNull(now, "now"));
     }
 
+    /** Rebuilds an execution from persisted state. */
+    public static AgentExecution restore(UUID id, UUID taskId, AgentType agentType, int attempt, String model,
+                                         String promptVersion, ExecutionStatus status, String output,
+                                         ErrorCode errorCode, Instant createdAt, Instant startedAt,
+                                         Instant finishedAt) {
+        AgentExecution execution = new AgentExecution(id, taskId, agentType, attempt, model, promptVersion, createdAt);
+        execution.status = status;
+        execution.output = output;
+        execution.errorCode = errorCode;
+        execution.startedAt = startedAt;
+        execution.finishedAt = finishedAt;
+        return execution;
+    }
+
     public void start(Instant now) {
         requireStatus(ExecutionStatus.PENDING, ExecutionStatus.RUNNING);
         status = ExecutionStatus.RUNNING;

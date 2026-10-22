@@ -55,6 +55,20 @@ public class Task {
                 Objects.requireNonNull(now, "now"));
     }
 
+    /** Rebuilds a task from persisted state. Does not re-run creation rules. */
+    public static Task restore(UUID id, String title, String description, TaskStatus status, TaskPriority priority,
+                               AgentType assignedAgent, TaskSource source, String externalReference,
+                               boolean requiresHumanApproval, int attempt, Instant createdAt, Instant updatedAt,
+                               Instant completedAt) {
+        Task task = new Task(id, title, description, source, externalReference, requiresHumanApproval, priority, createdAt);
+        task.status = status;
+        task.assignedAgent = assignedAgent;
+        task.attempt = attempt;
+        task.updatedAt = updatedAt;
+        task.completedAt = completedAt;
+        return task;
+    }
+
     public void assign(ManagerDecision decision, Instant now) {
         moveTo(TaskStatus.PLANNED, now);
         this.assignedAgent = decision.agent();
