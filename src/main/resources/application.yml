@@ -82,7 +82,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: never
@@ -90,6 +90,8 @@ management:
         enabled: true
   info:
     env:
+      enabled: true
+    java:
       enabled: true
 
 info:

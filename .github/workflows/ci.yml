@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Unit tests, integration tests against PostgreSQL (Testcontainers), JaCoCo report and coverage gate.
+      - name: Verify
+        run: ./mvnw -B verify
+
+      - name: Coverage summary
+        if: always() && hashFiles('target/site/jacoco/jacoco.csv') != ''
+        run: |
+          {
+            echo "### Coverage (unit + integration tests)"
+            echo "| Layer | Instructions |"
+            echo "|---|---|"
+            awk -F, 'NR > 1 { split($2, p, "."); l = p[4]; if (l == "") next; m[l] += $4; c[l] += $5 }
+              END { for (l in m) printf "| %s | %.1f%% |\n", l, 100 * c[l] / (m[l] + c[l]) }' target/site/jacoco/jacoco.csv | sort
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: target/site/jacoco/
+          if-no-files-found: ignore
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+          if-no-files-found: ignore
+
+  n8n-workflows:
+    name: n8n workflow logic
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Test workflow Code nodes
+        run: node --test n8n/test/*.test.mjs
+
+  docker:
+    name: Docker image
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Built to prove the image works; never pushed from CI.
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          tags: agent-office-core:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

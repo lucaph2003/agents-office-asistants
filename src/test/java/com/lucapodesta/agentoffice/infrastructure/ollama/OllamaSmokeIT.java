@@ -6,6 +6,7 @@ import com.lucapodesta.agentoffice.application.port.out.LlmRequest;
 import com.lucapodesta.agentoffice.application.port.out.LlmResponse;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import com.lucapodesta.agentoffice.infrastructure.prompt.ClasspathPromptCatalog;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -66,6 +67,7 @@ class OllamaSmokeIT {
                 URI.create(System.getenv().getOrDefault("OLLAMA_BASE_URL", "http://localhost:11434")),
                 Duration.ofSeconds(5), Duration.ofMinutes(5), 1, Duration.ZERO, 0.2, false,
                 new OllamaProperties.Models(model, model, model, model));
-        return new OllamaLanguageModelAdapter(OllamaConfig.ollamaClient(RestClient.builder(), properties), properties);
+        return new OllamaLanguageModelAdapter(OllamaConfig.ollamaClient(RestClient.builder(), properties), properties,
+                new SimpleMeterRegistry());
     }
 }

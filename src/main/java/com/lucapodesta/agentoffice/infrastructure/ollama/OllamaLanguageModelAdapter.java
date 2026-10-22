@@ -6,6 +6,9 @@ import com.lucapodesta.agentoffice.application.port.out.LlmResponse;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import com.lucapodesta.agentoffice.domain.exception.ErrorCode;
 import com.lucapodesta.agentoffice.domain.exception.LanguageModelException;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -22,15 +25,30 @@ public class OllamaLanguageModelAdapter implements LanguageModelPort {
 
     private final OllamaClient client;
     private final OllamaProperties properties;
+    private final MeterRegistry meters;
 
-    OllamaLanguageModelAdapter(OllamaClient client, OllamaProperties properties) {
+    OllamaLanguageModelAdapter(OllamaClient client, OllamaProperties properties, MeterRegistry meters) {
         this.client = client;
         this.properties = properties;
+        this.meters = meters;
     }
 
     @Override
     public LlmResponse generate(LlmRequest request) {
         String model = modelFor(request.agent());
+        Timer.Sample sample = Timer.start(meters);
+        try {
+            LlmResponse response = call(request, model);
+            sample.stop(callTimer(request, model, "success"));
+            recordTokens(request, model, response);
+            return response;
+        } catch (LanguageModelException ex) {
+            sample.stop(callTimer(request, model, ex.code().name()));
+            throw ex;
+        }
+    }
+
+    private LlmResponse call(LlmRequest request, String model) {
         OllamaChatResponse response = client.chat(new OllamaChatRequest(
                 model,
                 List.of(new OllamaChatRequest.Message("system", request.systemPrompt()),
@@ -50,6 +68,28 @@ public class OllamaLanguageModelAdapter implements LanguageModelPort {
                 response.promptEvalCount(), response.evalCount());
         return new LlmResponse(content, response.model() != null ? response.model() : model, duration,
                 response.promptEvalCount(), response.evalCount());
+    }
+
+    private Timer callTimer(LlmRequest request, String model, String outcome) {
+        return Timer.builder("agent_office.llm.calls")
+                .description("Language model calls")
+                .tags("agent", request.agent().name(), "model", model, "outcome", outcome)
+                .register(meters);
+    }
+
+    private void recordTokens(LlmRequest request, String model, LlmResponse response) {
+        record(request, model, "prompt", response.promptTokens());
+        record(request, model, "output", response.outputTokens());
+    }
+
+    private void record(LlmRequest request, String model, String direction, Integer tokens) {
+        if (tokens != null) {
+            DistributionSummary.builder("agent_office.llm.tokens")
+                    .description("Tokens per language model call")
+                    .tags("agent", request.agent().name(), "model", model, "direction", direction)
+                    .register(meters)
+                    .record(tokens);
+        }
     }
 
     @Override

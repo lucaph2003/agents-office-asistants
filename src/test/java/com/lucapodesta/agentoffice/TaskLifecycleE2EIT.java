@@ -57,7 +57,8 @@ class TaskLifecycleE2EIT extends AbstractIntegrationTest {
 
     @Test
     void taskTravelsFromInboxToDone() throws Exception {
-        String id = createTask();
+        MvcTestResult created = create();
+        String id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
         String status = awaitFinalStatus(id);
 
@@ -75,6 +76,17 @@ class TaskLifecycleE2EIT extends AbstractIntegrationTest {
         assertThat(executions).bodyJson().extractingPath("$[3].summary").isEqualTo("Incremental migration in three phases");
         assertThat(executions).bodyJson().extractingPath("$[3].promptVersion").isEqualTo("developer-v1");
         assertThat(executions).bodyJson().extractingPath("$[3].model").isEqualTo("qwen3:8b");
+
+        assertThat(ollama.getAllServeEvents())
+                .extracting(event -> event.getRequest().getHeader("X-Correlation-Id"))
+                .as("every model call carries the correlation id of the request that created the task")
+                .doesNotContainNull()
+                .containsOnly(created.getResponse().getHeader("X-Correlation-Id"));
+
+        assertThat(mvc.get().uri("/actuator/metrics/agent_office.task.events?tag=type:TASK_COMPLETED")).bodyJson()
+                .extractingPath("$.measurements[0].value").asNumber().isEqualTo(1.0);
+        assertThat(mvc.get().uri("/actuator/metrics/agent_office.llm.calls?tag=agent:DEVELOPER")).bodyJson()
+                .extractingPath("$.measurements[?(@.statistic == 'COUNT')].value").asArray().containsExactly(2.0);
 
         assertThat(mvc.get().uri("/api/v1/tasks/{id}/reviews", id)).bodyJson()
                 .extractingPath("$[*].status").asArray().containsExactly("CHANGES_REQUESTED", "APPROVED");
@@ -111,13 +123,17 @@ class TaskLifecycleE2EIT extends AbstractIntegrationTest {
     }
 
     private String createTask() throws Exception {
+        return JsonPath.read(create().getResponse().getContentAsString(), "$.id");
+    }
+
+    private MvcTestResult create() {
         MvcTestResult created = mvc.post().uri("/api/v1/tasks").contentType(MediaType.APPLICATION_JSON).content("""
                 {"title": "Java 21 migration plan",
                  "description": "Prepare a technical plan to migrate service X from Java 11 to Java 21",
                  "source": "TELEGRAM", "externalReference": "chat-42"}
                 """).exchange();
         assertThat(created).hasStatus(201);
-        return JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+        return created;
     }
 
     private String awaitFinalStatus(String id) {

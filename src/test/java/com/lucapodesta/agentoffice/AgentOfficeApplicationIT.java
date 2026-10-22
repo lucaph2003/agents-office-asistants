@@ -45,4 +45,12 @@ class AgentOfficeApplicationIT extends AbstractIntegrationTest {
         assertThat(ollamaProperties.models().developer()).isEqualTo("qwen3:8b");
         assertThat(ollamaProperties.baseUrl()).hasToString("http://localhost:11434");
     }
+
+    @Test
+    void infoExposesBuildAndJavaVersion() {
+        assertThat(mvc.get().uri("/actuator/info")).hasStatusOk().bodyJson()
+                .extractingPath("$.build.artifact").isEqualTo("agent-office");
+        assertThat(mvc.get().uri("/actuator/info")).bodyJson()
+                .extractingPath("$.java.version").asString().startsWith("21");
+    }
 }

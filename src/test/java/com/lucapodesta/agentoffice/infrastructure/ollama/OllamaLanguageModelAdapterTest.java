@@ -17,6 +17,7 @@ import com.lucapodesta.agentoffice.application.port.out.LlmResponse;
 import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import com.lucapodesta.agentoffice.domain.exception.ErrorCode;
 import com.lucapodesta.agentoffice.domain.exception.LanguageModelException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,8 @@ class OllamaLanguageModelAdapterTest {
     static WireMockExtension ollama = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort())
             .build();
+
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
 
     private static final LlmRequest JSON_REQUEST =
             new LlmRequest(AgentType.DEVELOPER, "You are a developer", "<task>Plan</task>", true);
@@ -55,6 +58,31 @@ class OllamaLanguageModelAdapterTest {
                  "stream": false, "format": "json", "think": false,
                  "options": {"temperature": 0.2}}
                 """)));
+    }
+
+    @Test
+    void recordsCallDurationAndTokensPerAgentAndModel() {
+        ollama.stubFor(post("/api/chat").willReturn(okJson("""
+                {"model": "dev-model", "message": {"role": "assistant", "content": "ok"}, "done": true,
+                 "prompt_eval_count": 42, "eval_count": 7}
+                """)));
+
+        adapter(1).generate(JSON_REQUEST);
+
+        assertThat(meters.get("agent_office.llm.calls")
+                .tags("agent", "DEVELOPER", "model", "dev-model", "outcome", "success").timer().count()).isEqualTo(1);
+        assertThat(meters.get("agent_office.llm.tokens").tags("direction", "prompt").summary().totalAmount()).isEqualTo(42);
+        assertThat(meters.get("agent_office.llm.tokens").tags("direction", "output").summary().totalAmount()).isEqualTo(7);
+    }
+
+    @Test
+    void recordsFailuresByErrorCode() {
+        ollama.stubFor(post("/api/chat").willReturn(aResponse().withStatus(404)));
+
+        assertThatThrownBy(() -> adapter(1).generate(JSON_REQUEST)).isInstanceOf(LanguageModelException.class);
+
+        assertThat(meters.get("agent_office.llm.calls").tags("outcome", "AGENT_NOT_AVAILABLE").timer().count())
+                .isEqualTo(1);
     }
 
     @Test
@@ -159,15 +187,16 @@ class OllamaLanguageModelAdapterTest {
                 .extracting("code").isEqualTo(ErrorCode.OLLAMA_UNAVAILABLE);
     }
 
-    private static OllamaLanguageModelAdapter adapter(int maxAttempts) {
+    private OllamaLanguageModelAdapter adapter(int maxAttempts) {
         return adapter(URI.create(ollama.baseUrl()), maxAttempts);
     }
 
-    private static OllamaLanguageModelAdapter adapter(URI baseUrl, int maxAttempts) {
+    private OllamaLanguageModelAdapter adapter(URI baseUrl, int maxAttempts) {
         OllamaProperties properties = new OllamaProperties(baseUrl, Duration.ofMillis(500), Duration.ofMillis(300),
                 maxAttempts, Duration.ZERO, 0.2, false,
                 new OllamaProperties.Models("manager-model", "research-model", "dev-model", "review-model"));
-        return new OllamaLanguageModelAdapter(OllamaConfig.ollamaClient(RestClient.builder(), properties), properties);
+        return new OllamaLanguageModelAdapter(OllamaConfig.ollamaClient(RestClient.builder(), properties), properties,
+                meters);
     }
 
     private static String answer(String content) {

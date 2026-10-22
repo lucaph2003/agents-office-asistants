@@ -1,5 +1,6 @@
 package com.lucapodesta.agentoffice.infrastructure.ollama;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.net.http.HttpClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -12,8 +13,9 @@ import org.springframework.web.client.RestClient;
 class OllamaConfig {
 
     @Bean
-    OllamaLanguageModelAdapter ollamaLanguageModelAdapter(RestClient.Builder builder, OllamaProperties properties) {
-        return new OllamaLanguageModelAdapter(ollamaClient(builder, properties), properties);
+    OllamaLanguageModelAdapter ollamaLanguageModelAdapter(RestClient.Builder builder, OllamaProperties properties,
+                                                          MeterRegistry meters) {
+        return new OllamaLanguageModelAdapter(ollamaClient(builder, properties), properties, meters);
     }
 
     static OllamaClient ollamaClient(RestClient.Builder builder, OllamaProperties properties) {

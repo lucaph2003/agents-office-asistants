@@ -23,10 +23,8 @@ import com.lucapodesta.agentoffice.domain.task.TaskStatus;
 import java.net.URI;
 import java.time.Duration;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
 
 class N8nNotificationAdapterTest {
@@ -39,21 +37,14 @@ class N8nNotificationAdapterTest {
             "Java 21 plan", TaskStatus.DONE, TaskPriority.HIGH, AgentType.DEVELOPER, 1, ReviewStatus.APPROVED,
             "Three-phase plan", null, "https://trello.com/c/c1", TaskSource.TELEGRAM, "chat-42");
 
-    @AfterEach
-    void clearMdc() {
-        MDC.clear();
-    }
-
     @Test
-    void postsTheNotificationWithTokenAndCorrelationId() {
+    void postsTheNotificationWithItsToken() {
         n8n.stubFor(post("/webhook/agent-office/task-completed").willReturn(ok()));
-        MDC.put("correlationId", "corr-123");
 
         adapter().notify(NOTIFICATION);
 
         n8n.verify(postRequestedFor(urlEqualTo("/webhook/agent-office/task-completed"))
                 .withHeader("X-Agent-Office-Token", equalTo("webhook-secret"))
-                .withHeader("X-Correlation-Id", equalTo("corr-123"))
                 .withRequestBody(equalToJson("""
                         {"event": "TASK_COMPLETED", "taskId": "4f0c2a1e-0000-4000-8000-000000000001",
                          "title": "Java 21 plan", "status": "DONE", "priority": "HIGH", "agent": "DEVELOPER",

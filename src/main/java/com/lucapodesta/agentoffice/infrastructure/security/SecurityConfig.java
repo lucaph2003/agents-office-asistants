@@ -12,7 +12,7 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The task API requires an API key; health, info and the API docs stay public. Stateless, no
+ * The task API and metrics require an API key; health, info and the API docs stay public. Stateless, no
  * sessions, no cookies, hence no CSRF protection to maintain.
  */
 @Configuration(proxyBeanMethods = false)
@@ -30,7 +30,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new ApiKeyAuthenticationFilter(properties.apiKey()), AnonymousAuthenticationFilter.class)
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/api/**", "/actuator/metrics/**").authenticated()
                         .anyRequest().permitAll())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(entryPoint))
                 .build();

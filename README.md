@@ -209,8 +209,33 @@ Every response carries an `X-Correlation-Id` header (the caller's, or a generate
 ## Testing
 
 ```bash
-./mvnw clean verify
+./mvnw clean verify                # unit + integration tests, coverage gate
+node --test n8n/test/*.test.mjs    # n8n workflow logic
 ```
 
-- `*Test` — unit tests (Surefire)
-- `*IT` — integration tests against a real PostgreSQL via Testcontainers (Failsafe). Docker must be running.
+| Kind | What it covers |
+|---|---|
+| Unit (`*Test`) | State machine, review policy and retry limit, agents' output parsing, pipeline scenarios with in-memory fakes, board and notification rules |
+| Adapters (WireMock) | Ollama, Trello and n8n: success, timeouts, 4xx, 5xx, unreadable responses, credentials never in URLs |
+| Integration (`*IT`) | Real PostgreSQL via Testcontainers: Flyway, constraints, repositories, optimistic locking, REST API, security |
+| End to end | A task created through the API is routed, worked, sent back once by the reviewer, redone and completed, asynchronously, with executions, reviews, audit trail, board sync and notification checked |
+| Architecture | ArchUnit keeps `domain` free of Spring/JPA/Jackson and dependencies pointing inwards |
+
+JaCoCo merges unit and integration coverage and fails the build if any `domain` or `application` package drops below 80% of instructions (currently ~99% domain, ~95% application).
+
+An opt-in smoke test talks to a real Ollama with the real prompts: `OLLAMA_SMOKE_TEST=true ./mvnw verify -Dit.test=OllamaSmokeIT`.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the Maven build with Testcontainers, the n8n workflow tests and a Docker image build on every push and pull request, and publishes a coverage summary. Nothing is deployed.
+
+## Observability
+
+- **Correlation id**: every request gets an `X-Correlation-Id` (the caller's, or a generated one). It is in every log line, in error bodies, follows the task into the background pipeline, and is sent to Ollama, Trello and n8n. Telegram messages arrive as `telegram-<update_id>`.
+- **Logs**: `event=... taskId=... agent=...` key-value style; secrets and prompts are never logged. For JSON logs (ECS) set `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`.
+- **Audit trail**: `GET /api/v1/tasks/{id}/events` reconstructs what happened to a task, including board and notification outcomes.
+- **Actuator**: `/actuator/health` (with liveness/readiness groups) and `/actuator/info` (build and Java version) are public; `/actuator/metrics` requires the API key.
+
+| Metric | Tags |
+|---|---|
+| `agent_office.llm.calls` (timer) | `agent`, `model`, `outcome` (`success` or error code) |
+| `agent_office.llm.tokens` (summary) | `agent`, `model`, `direction` (`prompt` / `output`) |
+| `agent_office.task.events` (counter) | `type` (`TASK_COMPLETED`, `TASK_FAILED`, `TASK_BLOCKED`, `TRELLO_SYNC_FAILED`, …) |

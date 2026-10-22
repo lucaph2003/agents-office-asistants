@@ -3,9 +3,7 @@ package com.lucapodesta.agentoffice.infrastructure.notification;
 import com.lucapodesta.agentoffice.application.port.out.NotificationPort;
 import com.lucapodesta.agentoffice.application.port.out.TaskNotification;
 import com.lucapodesta.agentoffice.domain.exception.NotificationException;
-import com.lucapodesta.agentoffice.infrastructure.observability.CorrelationIdFilter;
 import java.net.URI;
-import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -28,12 +26,6 @@ class N8nNotificationAdapter implements NotificationPort {
         try {
             restClient.post()
                     .uri(webhookUrl)
-                    .headers(headers -> {
-                        String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);
-                        if (correlationId != null) {
-                            headers.set(CorrelationIdFilter.HEADER, correlationId);
-                        }
-                    })
                     .body(notification)
                     .retrieve()
                     .toBodilessEntity();

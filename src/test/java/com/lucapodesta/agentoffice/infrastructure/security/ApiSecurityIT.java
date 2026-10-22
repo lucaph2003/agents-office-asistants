@@ -48,6 +48,13 @@ class ApiSecurityIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void metricsNeedTheApiKey() {
+        assertThat(anonymous().get().uri("/actuator/metrics")).hasStatus(401);
+        assertThat(anonymous().get().uri("/actuator/metrics").header("X-Api-Key", "test-api-key-0123456789"))
+                .hasStatusOk();
+    }
+
+    @Test
     void validKeyIsAccepted() {
         assertThat(anonymous().get().uri("/api/v1/tasks").header("X-Api-Key", "test-api-key-0123456789"))
                 .hasStatusOk();
