@@ -87,9 +87,9 @@ Credentials are never versioned. Copy the template, fill in the three secrets, a
 workflows; the workflows reference the credentials by id, so they are linked automatically.
 
 ```bash
-cp n8n/credentials.example.json n8n/credentials.json   # git-ignored
-# edit n8n/credentials.json: bot token, AGENT_OFFICE_API_KEY, N8N_WEBHOOK_TOKEN
-docker compose exec n8n n8n import:credentials --input=/workflows/credentials.json
+cp n8n/credentials/credentials.example.json n8n/credentials/credentials.json   # git-ignored
+# edit credentials.json: bot token, AGENT_OFFICE_API_KEY, N8N_WEBHOOK_TOKEN
+docker compose exec n8n n8n import:credentials --input=/workflows/credentials/credentials.json
 docker compose exec n8n n8n import:workflow --separate --input=/workflows
 ```
 
@@ -98,8 +98,17 @@ credentials by hand with the names above.
 
 ### 4. Activate
 
-Publish both workflows in the editor (or `n8n publish:workflow --id=<id>` and restart n8n). Activating the
-intake workflow registers the bot webhook with Telegram, which is why `WEBHOOK_URL` must be set first.
+Publish both workflows, then restart n8n so the CLI change takes effect:
+
+```bash
+docker compose exec n8n n8n publish:workflow --id=agentOfficeTaskCompleted
+docker compose exec n8n n8n publish:workflow --id=agentOfficeTelegramIntake
+docker compose restart n8n
+```
+
+Or use *Publish* in the editor. Publishing the intake workflow registers the bot webhook with Telegram, which is why
+`WEBHOOK_URL` must be set first. Re-importing a workflow unpublishes it: publish again after every import, otherwise
+Agent Office gets `404` from the webhook and records `NOTIFICATION_FAILED`.
 
 ## Security
 

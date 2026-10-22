@@ -1,5 +1,8 @@
 name: agent-office
 
+# docker compose up --build                  Postgres + Agent Office + n8n, Ollama on the host (recommended on macOS)
+# docker compose --profile ollama up --build  also runs Ollama in a container (set OLLAMA_BASE_URL_DOCKER=http://ollama:11434)
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -17,5 +20,84 @@ services:
       timeout: 3s
       retries: 10
 
+  agent-office-core:
+    build: .
+    image: agent-office-core:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${AGENT_OFFICE_PORT:-8080}:8080"
+    # Only what the app needs is passed in; nothing else from .env leaks into the container.
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-agent_office}
+      DB_USERNAME: ${DB_USERNAME:-agent_office}
+      DB_PASSWORD: ${DB_PASSWORD:-agent_office}
+      AGENT_OFFICE_API_KEY: ${AGENT_OFFICE_API_KEY:?Set AGENT_OFFICE_API_KEY in .env}
+      PIPELINE_AUTO_START: ${PIPELINE_AUTO_START:-true}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL_DOCKER:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
+      OLLAMA_MODEL_MANAGER: ${OLLAMA_MODEL_MANAGER:-${OLLAMA_MODEL:-qwen3:8b}}
+      OLLAMA_MODEL_RESEARCH: ${OLLAMA_MODEL_RESEARCH:-${OLLAMA_MODEL:-qwen3:8b}}
+      OLLAMA_MODEL_DEVELOPER: ${OLLAMA_MODEL_DEVELOPER:-${OLLAMA_MODEL:-qwen3:8b}}
+      OLLAMA_MODEL_REVIEWER: ${OLLAMA_MODEL_REVIEWER:-${OLLAMA_MODEL:-qwen3:8b}}
+      OLLAMA_READ_TIMEOUT: ${OLLAMA_READ_TIMEOUT:-180s}
+      TRELLO_ENABLED: ${TRELLO_ENABLED:-false}
+      TRELLO_API_KEY: ${TRELLO_API_KEY:-}
+      TRELLO_TOKEN: ${TRELLO_TOKEN:-}
+      TRELLO_BOARD_ID: ${TRELLO_BOARD_ID:-}
+      TRELLO_LIST_INBOX: ${TRELLO_LIST_INBOX:-}
+      TRELLO_LIST_PLANNED: ${TRELLO_LIST_PLANNED:-}
+      TRELLO_LIST_IN_PROGRESS: ${TRELLO_LIST_IN_PROGRESS:-}
+      TRELLO_LIST_REVIEW: ${TRELLO_LIST_REVIEW:-}
+      TRELLO_LIST_BLOCKED: ${TRELLO_LIST_BLOCKED:-}
+      TRELLO_LIST_DONE: ${TRELLO_LIST_DONE:-}
+      N8N_NOTIFICATIONS_ENABLED: ${N8N_NOTIFICATIONS_ENABLED:-false}
+      N8N_TASK_COMPLETED_WEBHOOK_URL: ${N8N_TASK_COMPLETED_WEBHOOK_URL:-http://n8n:5678/webhook/agent-office/task-completed}
+      N8N_WEBHOOK_TOKEN: ${N8N_WEBHOOK_TOKEN:-}
+    extra_hosts:
+      # Makes host.docker.internal work on Linux too (Docker Desktop and OrbStack provide it already).
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:2.44.6
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      AGENT_OFFICE_API_URL: http://agent-office-core:8080
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:-}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      # The workflows read the variables above.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      GENERIC_TIMEZONE: ${TZ:-UTC}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./n8n:/workflows:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:0.40.8
+    profiles: ["ollama"]
+    ports:
+      - "${OLLAMA_PORT:-11435}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
 volumes:
   postgres-data:
+  n8n-data:
+  ollama-data:

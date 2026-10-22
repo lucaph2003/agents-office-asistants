@@ -88,17 +88,35 @@ Java 21 · Spring Boot 4 · Maven · PostgreSQL 18 · Flyway · Spring Data JPA 
 
 ## Running locally
 
-Requirements: Java 21, Docker.
+Requirements: Docker, and [Ollama](https://ollama.com) on the host (recommended on macOS, where containers cannot use the GPU).
 
 ```bash
-cp .env.example .env
+cp .env.example .env          # set AGENT_OFFICE_API_KEY at least
+ollama pull qwen3:8b
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Agent Office API | <http://localhost:8080/swagger-ui.html> |
+| n8n | <http://localhost:5678> |
+| PostgreSQL | `localhost:5433` |
+
+Ollama inside Docker instead of on the host:
+
+```bash
+OLLAMA_BASE_URL_DOCKER=http://ollama:11434 docker compose --profile ollama up --build
+docker compose exec ollama ollama pull qwen3:8b
+```
+
+Trello and Telegram are optional and off by default; see [Trello](#trello) and [docs/n8n.md](docs/n8n.md).
+
+For development, run only the database in Docker and the app from the IDE or Maven (the `local` profile reads the same `.env`):
+
+```bash
 docker compose up -d postgres
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
-
-The `local` profile reads the same `.env` as Docker Compose. PostgreSQL is published on host port `5433` by default (`POSTGRES_PORT`) to avoid clashing with a local installation; the app listens on `8080` (`SERVER_PORT`).
-
-Health check: <http://localhost:8080/actuator/health>
 
 ## Ollama
 
