@@ -4,18 +4,27 @@ import com.lucapodesta.agentoffice.application.dto.CreateTaskCommand;
 import com.lucapodesta.agentoffice.application.dto.PageQuery;
 import com.lucapodesta.agentoffice.application.dto.PageResult;
 import com.lucapodesta.agentoffice.application.dto.TaskFilter;
+import com.lucapodesta.agentoffice.application.dto.TaskExecutionRequestedEvent;
+import com.lucapodesta.agentoffice.application.dto.TaskSubmittedEvent;
+import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
+import com.lucapodesta.agentoffice.domain.exception.InvalidTaskStateException;
 import com.lucapodesta.agentoffice.domain.exception.TaskNotFoundException;
+import com.lucapodesta.agentoffice.domain.execution.AgentExecution;
+import com.lucapodesta.agentoffice.domain.review.Review;
 import com.lucapodesta.agentoffice.domain.task.Task;
 import com.lucapodesta.agentoffice.domain.task.TaskEvent;
 import com.lucapodesta.agentoffice.domain.task.TaskEventType;
+import com.lucapodesta.agentoffice.domain.task.TaskStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,11 +35,18 @@ public class TaskService {
 
     private final TaskRepository tasks;
     private final TaskEventRepository events;
+    private final AgentExecutionRepository executions;
+    private final ReviewRepository reviews;
+    private final ApplicationEventPublisher publisher;
     private final Clock clock;
 
-    public TaskService(TaskRepository tasks, TaskEventRepository events, Clock clock) {
+    public TaskService(TaskRepository tasks, TaskEventRepository events, AgentExecutionRepository executions,
+                       ReviewRepository reviews, ApplicationEventPublisher publisher, Clock clock) {
         this.tasks = tasks;
         this.events = events;
+        this.executions = executions;
+        this.reviews = reviews;
+        this.publisher = publisher;
         this.clock = clock;
     }
 
@@ -42,6 +58,7 @@ public class TaskService {
         events.append(TaskEvent.of(task.id(), TaskEventType.TASK_CREATED, TaskEvent.USER,
                 "source=%s priority=%s".formatted(task.source(), task.priority()), now));
         log.info("event=TASK_CREATED taskId={} source={} priority={}", task.id(), task.source(), task.priority());
+        publisher.publishEvent(new TaskSubmittedEvent(task.id()));
         return task;
     }
 
@@ -66,6 +83,41 @@ public class TaskService {
         events.append(cancelled);
         log.info("event=TASK_CANCELLED taskId={}", id);
         return saved;
+    }
+
+    /**
+     * Starts a task that is waiting, or resumes a blocked one. The work itself runs asynchronously
+     * once this transaction commits.
+     */
+    @Transactional
+    public Task execute(UUID id) {
+        Task task = get(id);
+        switch (task.status()) {
+            case INBOX, PLANNED -> {
+            }
+            case BLOCKED -> {
+                Instant now = clock.instant();
+                task.resume(now);
+                task = tasks.save(task);
+                events.append(TaskEvent.of(id, TaskEventType.TASK_RESUMED, TaskEvent.USER, "to=" + task.status(), now));
+            }
+            default -> throw new InvalidTaskStateException(id, task.status(), TaskStatus.IN_PROGRESS);
+        }
+        log.info("event=TASK_EXECUTION_REQUESTED taskId={} status={}", id, task.status());
+        publisher.publishEvent(new TaskExecutionRequestedEvent(id));
+        return task;
+    }
+
+    @Transactional(readOnly = true)
+    public List<AgentExecution> executions(UUID id) {
+        get(id);
+        return executions.findByTaskId(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Review> reviews(UUID id) {
+        get(id);
+        return reviews.findByTaskId(id);
     }
 
     @Transactional(readOnly = true)

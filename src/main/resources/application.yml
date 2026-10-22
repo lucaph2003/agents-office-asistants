@@ -7,6 +7,11 @@ spring:
   threads:
     virtual:
       enabled: true
+  task:
+    execution:
+      simple:
+        # Local models serve one request at a time; more parallel pipelines only queue up in Ollama.
+        concurrency-limit: 2
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -19,6 +24,10 @@ spring:
     locations: classpath:db/migration
 
 agent-office:
+  pipeline:
+    auto-start: ${PIPELINE_AUTO_START:true}
+    max-attempts: 3
+    max-output-attempts: 2
   ollama:
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
     connect-timeout: 5s

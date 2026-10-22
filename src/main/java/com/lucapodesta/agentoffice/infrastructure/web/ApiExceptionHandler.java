@@ -121,7 +121,7 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             case INVALID_TASK_STATE, CONCURRENT_MODIFICATION, MAX_RETRIES_EXCEEDED -> HttpStatus.CONFLICT;
             case VALIDATION_ERROR -> HttpStatus.BAD_REQUEST;
             case AGENT_NOT_AVAILABLE, OLLAMA_UNAVAILABLE, TRELLO_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
-            case TELEGRAM_NOTIFICATION_FAILED -> HttpStatus.BAD_GATEWAY;
+            case TELEGRAM_NOTIFICATION_FAILED, INVALID_AGENT_OUTPUT -> HttpStatus.BAD_GATEWAY;
             case INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }

@@ -28,6 +28,10 @@ class TaskEventEntity extends AssignedIdEntity {
     private String details;
     private Instant createdAt;
 
+    /** Assigned by the database; defines the order of events that share a timestamp. */
+    @Column(insertable = false, updatable = false)
+    private Long sequence;
+
     protected TaskEventEntity() {
     }
 

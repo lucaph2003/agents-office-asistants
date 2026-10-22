@@ -11,6 +11,7 @@ import java.util.UUID;
 public class AgentExecution {
 
     public static final int MAX_OUTPUT_LENGTH = 20_000;
+    public static final int MAX_SUMMARY_LENGTH = 1_000;
     static final String TRUNCATION_MARKER = "\n[output truncated]";
 
     private final UUID id;
@@ -23,6 +24,7 @@ public class AgentExecution {
 
     private ExecutionStatus status;
     private String output;
+    private String summary;
     private ErrorCode errorCode;
     private Instant startedAt;
     private Instant finishedAt;
@@ -57,11 +59,12 @@ public class AgentExecution {
     /** Rebuilds an execution from persisted state. */
     public static AgentExecution restore(UUID id, UUID taskId, AgentType agentType, int attempt, String model,
                                          String promptVersion, ExecutionStatus status, String output,
-                                         ErrorCode errorCode, Instant createdAt, Instant startedAt,
+                                         String summary, ErrorCode errorCode, Instant createdAt, Instant startedAt,
                                          Instant finishedAt) {
         AgentExecution execution = new AgentExecution(id, taskId, agentType, attempt, model, promptVersion, createdAt);
         execution.status = status;
         execution.output = output;
+        execution.summary = summary;
         execution.errorCode = errorCode;
         execution.startedAt = startedAt;
         execution.finishedAt = finishedAt;
@@ -74,10 +77,15 @@ public class AgentExecution {
         startedAt = now;
     }
 
-    public void succeed(String output, Instant now) {
+    /**
+     * @param output  full result of the agent
+     * @param summary short human-readable version, used in notifications and on the board
+     */
+    public void succeed(String output, String summary, Instant now) {
         requireStatus(ExecutionStatus.RUNNING, ExecutionStatus.SUCCESS);
         status = ExecutionStatus.SUCCESS;
-        this.output = truncate(Objects.requireNonNull(output, "output"));
+        this.output = truncate(Objects.requireNonNull(output, "output"), MAX_OUTPUT_LENGTH);
+        this.summary = summary == null ? null : truncate(summary.strip(), MAX_SUMMARY_LENGTH);
         finishedAt = now;
     }
 
@@ -101,11 +109,11 @@ public class AgentExecution {
         }
     }
 
-    private static String truncate(String output) {
-        if (output.length() <= MAX_OUTPUT_LENGTH) {
-            return output;
+    private static String truncate(String text, int maxLength) {
+        if (text.length() <= maxLength) {
+            return text;
         }
-        return output.substring(0, MAX_OUTPUT_LENGTH - TRUNCATION_MARKER.length()) + TRUNCATION_MARKER;
+        return text.substring(0, maxLength - TRUNCATION_MARKER.length()) + TRUNCATION_MARKER;
     }
 
     public UUID id() { return id; }
@@ -116,6 +124,7 @@ public class AgentExecution {
     public String promptVersion() { return promptVersion; }
     public ExecutionStatus status() { return status; }
     public String output() { return output; }
+    public String summary() { return summary; }
     public ErrorCode errorCode() { return errorCode; }
     public Instant createdAt() { return createdAt; }
     public Instant startedAt() { return startedAt; }

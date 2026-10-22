@@ -35,6 +35,8 @@ class AgentExecutionEntity extends AssignedIdEntity {
     @Column(columnDefinition = "text")
     private String output;
 
+    private String summary;
+
     @Enumerated(EnumType.STRING)
     private ErrorCode errorCode;
 
@@ -61,13 +63,14 @@ class AgentExecutionEntity extends AssignedIdEntity {
     void apply(AgentExecution execution) {
         status = execution.status();
         output = execution.output();
+        summary = execution.summary();
         errorCode = execution.errorCode();
         startedAt = execution.startedAt();
         finishedAt = execution.finishedAt();
     }
 
     AgentExecution toDomain() {
-        return AgentExecution.restore(id, taskId, agentType, attempt, model, promptVersion, status, output,
+        return AgentExecution.restore(id, taskId, agentType, attempt, model, promptVersion, status, output, summary,
                 errorCode, createdAt, startedAt, finishedAt);
     }
 

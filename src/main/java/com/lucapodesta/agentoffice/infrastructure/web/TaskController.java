@@ -30,7 +30,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/tasks")
-@Tag(name = "Tasks", description = "Create, inspect and cancel agent tasks")
+@Tag(name = "Tasks", description = "Create, run, inspect and cancel agent tasks")
 @ApiResponse(responseCode = "400", description = "Invalid request",
         content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 class TaskController {
@@ -80,6 +80,34 @@ class TaskController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     TaskResponse cancel(@PathVariable UUID id) {
         return TaskResponse.from(taskService.cancel(id));
+    }
+
+    @PostMapping("/{id}/execute")
+    @Operation(summary = "Run or resume a task",
+            description = "Starts a task in INBOX or PLANNED, or resumes a BLOCKED one. Agents run in the background.")
+    @ApiResponse(responseCode = "202", description = "Execution scheduled")
+    @ApiResponse(responseCode = "404", description = "TASK_NOT_FOUND",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "INVALID_TASK_STATE",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    ResponseEntity<TaskResponse> execute(@PathVariable UUID id) {
+        return ResponseEntity.accepted().body(TaskResponse.from(taskService.execute(id)));
+    }
+
+    @GetMapping("/{id}/executions")
+    @Operation(summary = "Agent executions of a task", description = "Every agent invocation, oldest first.")
+    @ApiResponse(responseCode = "404", description = "TASK_NOT_FOUND",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    List<ExecutionResponse> executions(@PathVariable UUID id) {
+        return taskService.executions(id).stream().map(ExecutionResponse::from).toList();
+    }
+
+    @GetMapping("/{id}/reviews")
+    @Operation(summary = "Reviews of a task", description = "Reviewer verdicts, oldest first.")
+    @ApiResponse(responseCode = "404", description = "TASK_NOT_FOUND",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    List<ReviewResponse> reviews(@PathVariable UUID id) {
+        return taskService.reviews(id).stream().map(ReviewResponse::from).toList();
     }
 
     @GetMapping("/{id}/events")

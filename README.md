@@ -32,6 +32,30 @@ com.lucapodesta.agentoffice
 └── infrastructure  adapters: REST, persistence, Ollama, Trello, n8n, config
 ```
 
+## Agents
+
+| Agent | Role | Answers with |
+|---|---|---|
+| Manager | Routes each task to a worker and sets its priority. Never does the work. | `agent`, `priority`, `reason` |
+| Research | Analyses the information in the task and structures conclusions. No web access. | `summary`, `content` |
+| Developer | Produces technical deliverables: plans, proposals, snippets. Never touches a repository. | `summary`, `content` |
+| Reviewer | Judges the worker's output against the task. | `verdict`, `feedback` |
+
+Research and Developer share one implementation (`WorkerAgent`) and differ only in their prompt. Model answers are parsed tolerantly (code fences and chatter are ignored) but validated strictly: an unusable answer is retried once, then the task fails with `INVALID_AGENT_OUTPUT`.
+
+## How it works
+
+Creating a task returns immediately. Once the request commits, the pipeline runs in the background:
+
+1. **Manager** routes the task → `PLANNED`
+2. **Worker** produces the deliverable → `IN_PROGRESS` → `REVIEW`
+3. **Reviewer** decides:
+   - `APPROVED` → `DONE` (or waits for a human if `requiresHumanApproval`)
+   - `CHANGES_REQUESTED` → back to the worker with the feedback, up to 3 attempts
+   - `REJECTED` → `FAILED`
+
+If Ollama is unreachable the task goes to `BLOCKED`; `POST /api/v1/tasks/{id}/execute` resumes it. Model calls never hold a database transaction, and each step re-reads the task, so cancelling a task mid-run simply stops the pipeline.
+
 ## Task lifecycle
 
 State changes are enforced by the domain; anything not drawn here is rejected with `INVALID_TASK_STATE`.
@@ -110,7 +134,10 @@ Interactive docs: <http://localhost:8080/swagger-ui.html> (OpenAPI JSON at `/v3/
 | `POST` | `/api/v1/tasks` | Create a task |
 | `GET` | `/api/v1/tasks/{id}` | Get a task |
 | `GET` | `/api/v1/tasks?status=&agent=&priority=&page=&size=` | List tasks, newest first |
+| `POST` | `/api/v1/tasks/{id}/execute` | Run a waiting task or resume a blocked one |
 | `POST` | `/api/v1/tasks/{id}/cancel` | Cancel a non-finished task |
+| `GET` | `/api/v1/tasks/{id}/executions` | Every agent invocation with model, prompt version and output |
+| `GET` | `/api/v1/tasks/{id}/reviews` | Reviewer verdicts |
 | `GET` | `/api/v1/tasks/{id}/events` | Audit trail |
 
 ```bash

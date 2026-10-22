@@ -2,3 +2,8 @@
 spring:
   main:
     banner-mode: off
+
+agent-office:
+  pipeline:
+    # API and persistence tests drive tasks explicitly; the end-to-end test turns this on.
+    auto-start: false

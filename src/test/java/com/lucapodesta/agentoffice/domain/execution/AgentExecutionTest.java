@@ -21,7 +21,7 @@ class AgentExecutionTest {
         assertThat(execution.status()).isEqualTo(ExecutionStatus.PENDING);
 
         execution.start(T0);
-        execution.succeed("plan", T1);
+        execution.succeed("plan", null, T1);
 
         assertThat(execution.status()).isEqualTo(ExecutionStatus.SUCCESS);
         assertThat(execution.output()).isEqualTo("plan");
@@ -46,7 +46,7 @@ class AgentExecutionTest {
     void onlySuccessfulRunsCanBeRejected() {
         AgentExecution succeeded = newExecution();
         succeeded.start(T0);
-        succeeded.succeed("plan", T1);
+        succeeded.succeed("plan", null, T1);
         succeeded.reject();
 
         AgentExecution running = newExecution();
@@ -60,7 +60,7 @@ class AgentExecutionTest {
     void cannotFinishWithoutStarting() {
         AgentExecution execution = newExecution();
 
-        assertThatThrownBy(() -> execution.succeed("plan", T1)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> execution.succeed("plan", null, T1)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> execution.fail(ErrorCode.INTERNAL_ERROR, T1)).isInstanceOf(IllegalStateException.class);
     }
 
@@ -69,7 +69,7 @@ class AgentExecutionTest {
         AgentExecution execution = newExecution();
         execution.start(T0);
 
-        execution.succeed("a".repeat(AgentExecution.MAX_OUTPUT_LENGTH * 2), T1);
+        execution.succeed("a".repeat(AgentExecution.MAX_OUTPUT_LENGTH * 2), null, T1);
 
         assertThat(execution.output())
                 .hasSize(AgentExecution.MAX_OUTPUT_LENGTH)

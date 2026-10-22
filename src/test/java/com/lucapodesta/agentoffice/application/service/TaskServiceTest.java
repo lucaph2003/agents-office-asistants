@@ -8,6 +8,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.lucapodesta.agentoffice.application.dto.CreateTaskCommand;
+import com.lucapodesta.agentoffice.application.dto.TaskExecutionRequestedEvent;
+import com.lucapodesta.agentoffice.application.dto.TaskSubmittedEvent;
+import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
 import com.lucapodesta.agentoffice.domain.exception.InvalidTaskStateException;
@@ -29,6 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class TaskServiceTest {
@@ -41,11 +46,20 @@ class TaskServiceTest {
     @Mock
     private TaskEventRepository events;
 
+    @Mock
+    private AgentExecutionRepository executions;
+
+    @Mock
+    private ReviewRepository reviews;
+
+    @Mock
+    private ApplicationEventPublisher publisher;
+
     private TaskService service;
 
     @BeforeEach
     void setUp() {
-        service = new TaskService(tasks, events, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new TaskService(tasks, events, executions, reviews, publisher, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -61,6 +75,42 @@ class TaskServiceTest {
         assertThat(event.type()).isEqualTo(TaskEventType.TASK_CREATED);
         assertThat(event.taskId()).isEqualTo(task.id());
         assertThat(event.details()).isEqualTo("source=TELEGRAM priority=HIGH");
+        verify(publisher).publishEvent(new TaskSubmittedEvent(task.id()));
+    }
+
+    @Test
+    void executeResumesBlockedTaskAndSchedulesIt() {
+        Task task = newTask();
+        task.block(NOW);
+        when(tasks.findById(task.id())).thenReturn(Optional.of(task));
+        when(tasks.save(task)).thenReturn(task);
+
+        Task resumed = service.execute(task.id());
+
+        assertThat(resumed.status()).isEqualTo(TaskStatus.INBOX);
+        assertThat(capturedEvent().type()).isEqualTo(TaskEventType.TASK_RESUMED);
+        verify(publisher).publishEvent(new TaskExecutionRequestedEvent(task.id()));
+    }
+
+    @Test
+    void executeSchedulesWaitingTaskWithoutChangingIt() {
+        Task task = newTask();
+        when(tasks.findById(task.id())).thenReturn(Optional.of(task));
+
+        service.execute(task.id());
+
+        verify(tasks, never()).save(any());
+        verify(publisher).publishEvent(new TaskExecutionRequestedEvent(task.id()));
+    }
+
+    @Test
+    void executeRefusesTasksAlreadyRunningOrFinished() {
+        Task task = newTask();
+        task.cancel(NOW);
+        when(tasks.findById(task.id())).thenReturn(Optional.of(task));
+
+        assertThatThrownBy(() -> service.execute(task.id())).isInstanceOf(InvalidTaskStateException.class);
+        verify(publisher, never()).publishEvent(any(Object.class));
     }
 
     @Test

@@ -74,7 +74,7 @@ class PersistenceAdaptersIT extends AbstractIntegrationTest {
                 NOW.plusSeconds(2));
         executions.save(succeeded);
         succeeded.start(NOW.plusSeconds(2));
-        succeeded.succeed("A migration plan", NOW.plusSeconds(3));
+        succeeded.succeed("A migration plan", null, NOW.plusSeconds(3));
         executions.save(succeeded);
         reviews.save(Review.of(task.id(), succeeded.id(), Reviewer.AGENT, ReviewStatus.CHANGES_REQUESTED,
                 "Add a rollback section", NOW.plusSeconds(4)));

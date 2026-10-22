@@ -3,6 +3,7 @@ package com.lucapodesta.agentoffice.infrastructure.ollama;
 import com.lucapodesta.agentoffice.application.port.out.LanguageModelPort;
 import com.lucapodesta.agentoffice.application.port.out.LlmRequest;
 import com.lucapodesta.agentoffice.application.port.out.LlmResponse;
+import com.lucapodesta.agentoffice.domain.agent.AgentType;
 import com.lucapodesta.agentoffice.domain.exception.ErrorCode;
 import com.lucapodesta.agentoffice.domain.exception.LanguageModelException;
 import java.time.Duration;
@@ -29,7 +30,7 @@ public class OllamaLanguageModelAdapter implements LanguageModelPort {
 
     @Override
     public LlmResponse generate(LlmRequest request) {
-        String model = properties.models().forAgent(request.agent());
+        String model = modelFor(request.agent());
         OllamaChatResponse response = client.chat(new OllamaChatRequest(
                 model,
                 List.of(new OllamaChatRequest.Message("system", request.systemPrompt()),
@@ -49,6 +50,11 @@ public class OllamaLanguageModelAdapter implements LanguageModelPort {
                 response.promptEvalCount(), response.evalCount());
         return new LlmResponse(content, response.model() != null ? response.model() : model, duration,
                 response.promptEvalCount(), response.evalCount());
+    }
+
+    @Override
+    public String modelFor(AgentType agent) {
+        return properties.models().forAgent(agent);
     }
 
     private static String contentOf(OllamaChatResponse response, String model) {

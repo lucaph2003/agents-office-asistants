@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 interface TaskEventJpaRepository extends JpaRepository<TaskEventEntity, UUID> {
 
-    List<TaskEventEntity> findByTaskIdOrderByCreatedAtAsc(UUID taskId);
+    List<TaskEventEntity> findByTaskIdOrderBySequenceAsc(UUID taskId);
 }

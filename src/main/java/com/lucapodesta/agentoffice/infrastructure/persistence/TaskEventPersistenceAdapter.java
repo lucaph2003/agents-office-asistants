@@ -22,6 +22,6 @@ class TaskEventPersistenceAdapter implements TaskEventRepository {
 
     @Override
     public List<TaskEvent> findByTaskId(UUID taskId) {
-        return jpa.findByTaskIdOrderByCreatedAtAsc(taskId).stream().map(TaskEventEntity::toDomain).toList();
+        return jpa.findByTaskIdOrderBySequenceAsc(taskId).stream().map(TaskEventEntity::toDomain).toList();
     }
 }
