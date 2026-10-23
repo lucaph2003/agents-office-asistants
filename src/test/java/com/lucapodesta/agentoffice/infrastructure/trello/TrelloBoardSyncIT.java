@@ -87,6 +87,9 @@ class TrelloBoardSyncIT extends AbstractIntegrationTest {
                 "✅ Developer finished: Incremental migration in three phases",
                 "👍 Reviewer approved: Clear and actionable",
                 "🏁 Completed (agent=DEVELOPER attempts=1)");
+        assertThat(comments().getLast())
+                .startsWith("📄 **Result** (Developer)")
+                .contains("# Java 21 migration\n1. Upgrade the build");
         assertThat(jdbc.queryForObject("SELECT synced_status FROM task_board_cards WHERE task_id = ?::uuid",
                 String.class, id)).isEqualTo("DONE");
         assertThat(mvc.get().uri("/api/v1/tasks/{id}/events", id)).bodyJson()

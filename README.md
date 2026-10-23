@@ -183,7 +183,7 @@ The user-facing interface. Commands: `/task <description>`, `/tasks`, `/status <
 
 ### Trello
 
-One card per task, moved across `📥 Inbox → 📋 Planned → 🤖 In Progress → 👀 Review → ✅ Done` (plus `⛔ Blocked`) with a comment for each meaningful step. Failed and cancelled tasks end in Done with `[FAILED]` / `[CANCELLED]` in the title. Each sync renders the full current state, so a missed call is repaired by the next one; if Trello is down the task keeps going and `TRELLO_SYNC_FAILED` is recorded.
+One card per task, moved across `📥 Inbox → 📋 Planned → 🤖 In Progress → 👀 Review → ✅ Done` (plus `⛔ Blocked`) with a comment for each meaningful step. When the task is done, the approved deliverable is posted as a final **📄 Result** comment, so it can be read on the card; the description keeps only the summary. Failed and cancelled tasks end in Done with `[FAILED]` / `[CANCELLED]` in the title. Each sync renders the full current state, so a missed call is repaired by the next one; if Trello is down the task keeps going and `TRELLO_SYNC_FAILED` is recorded.
 
 ```bash
 TRELLO_API_KEY=... TRELLO_TOKEN=... scripts/trello-setup.sh   # creates the board and prints the TRELLO_* lines for .env

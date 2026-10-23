@@ -13,7 +13,8 @@ limits and outages, and users can move cards by hand.
 - The link between task and card lives in its own table (`task_board_cards`) so board sync never competes with the
   pipeline for the task row and its optimistic lock.
 - A `TaskBoardSynchronizer` (application layer) reacts to committed audit events: it creates the card on first sight,
-  moves it with the task's status and comments on meaningful steps. Each update renders the full current state, so a
+  moves it with the task's status and comments on meaningful steps. When the task completes, the approved
+  deliverable is posted as a final comment (cut to fit Trello's comment limit); the description keeps the summary. Each update renders the full current state, so a
   failed call is repaired by the next event.
 - Trello failures are recorded as `TRELLO_SYNC_FAILED` and never affect the task. List ids come from configuration;
   `scripts/trello-setup.sh` creates the board and prints them.

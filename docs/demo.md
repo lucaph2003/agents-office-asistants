@@ -34,7 +34,7 @@ with a local model, and the result comes back to Telegram.
 | 3 | Wait a few seconds | The card moves to **📋 Planned**; comment *🧭 Manager: Assigned to DEVELOPER …* |
 | 4 | Keep watching (≈30 s with qwen3:8b on Apple Silicon) | **🤖 In Progress**, then the comment *✅ Developer finished: …*; in the terminal, `LLM_CALL_COMPLETED agent=DEVELOPER` with duration and tokens |
 | 5 | | **👀 Review**, then *👍 Reviewer approved: …* |
-| 6 | | The card lands in **✅ Done** with the latest execution and review in its description |
+| 6 | | The card lands in **✅ Done** with the latest execution and review in its description, and the full deliverable as the **📄 Result** comment |
 | 7 | Back to Telegram | *Task completed* with agent, review verdict, summary and the card link |
 
 Wording matters: "Prepare a technical plan…" goes to the Developer, while "Analyze whether we should…" is usually routed

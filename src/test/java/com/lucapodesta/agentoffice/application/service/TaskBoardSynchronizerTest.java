@@ -90,6 +90,50 @@ class TaskBoardSynchronizerTest {
     }
 
     @Test
+    void completedTaskGetsItsFullResultAsAComment() {
+        startWork();
+        recordWork("# 10 short video ideas\n1. /init and CLAUDE.md\n2. Plan mode");
+        task.submitForReview(NOW);
+        task.complete(NOW);
+        store.taskRepository.save(task);
+        cardExists(TaskStatus.REVIEW);
+
+        synchronizer.onEvent(event(TaskEventType.TASK_COMPLETED, TaskEvent.SYSTEM, "agent=DEVELOPER attempts=1"));
+
+        assertThat(board.calls).containsExactly(
+                "update card-1 DONE",
+                "comment card-1 🏁 Completed (agent=DEVELOPER attempts=1)",
+                "comment card-1 📄 **Result** (Developer)\n\n# 10 short video ideas\n1. /init and CLAUDE.md\n2. Plan mode");
+    }
+
+    @Test
+    void veryLongResultsAreCutToFitTrello() {
+        startWork();
+        recordWork("x".repeat(TaskBoardSynchronizer.MAX_RESULT_LENGTH + 5_000));
+        task.submitForReview(NOW);
+        task.complete(NOW);
+        store.taskRepository.save(task);
+
+        String result = TaskBoardSynchronizer.resultComment(
+                event(TaskEventType.TASK_COMPLETED, TaskEvent.SYSTEM, "done"),
+                new TaskCard(task, store.executionsOf(task.id()).getLast(), null)).orElseThrow();
+
+        assertThat(result.length()).isLessThan(16_384);
+        assertThat(result).endsWith("full result in GET /api/v1/tasks/" + task.id() + "/executions)");
+    }
+
+    @Test
+    void noResultCommentBeforeCompletionOrWithoutOutput() {
+        startWork();
+        recordWork("# Plan");
+
+        assertThat(TaskBoardSynchronizer.resultComment(event(TaskEventType.REVIEW_APPROVED, TaskEvent.SYSTEM, "ok"),
+                new TaskCard(task, store.executionsOf(task.id()).getLast(), null))).isEmpty();
+        assertThat(TaskBoardSynchronizer.resultComment(event(TaskEventType.TASK_COMPLETED, TaskEvent.SYSTEM, "ok"),
+                new TaskCard(task, null, null))).isEmpty();
+    }
+
+    @Test
     void ignoresInternalStepsAndItsOwnEvents() {
         cardExists(TaskStatus.INBOX);
         store.taskRepository.save(task);
@@ -140,6 +184,13 @@ class TaskBoardSynchronizerTest {
         task.assign(new ManagerDecision(AgentType.DEVELOPER, TaskPriority.HIGH, "technical"), NOW);
         task.start(NOW);
         store.taskRepository.save(task);
+    }
+
+    private void recordWork(String output) {
+        AgentExecution work = AgentExecution.create(task.id(), AgentType.DEVELOPER, 1, "m", "v1", NOW);
+        work.start(NOW);
+        work.succeed(output, "summary", NOW);
+        store.executionRepository.save(work);
     }
 
     private void cardExists(TaskStatus status) {

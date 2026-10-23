@@ -35,6 +35,9 @@ public class TaskBoardSynchronizer {
     private static final Logger log = LoggerFactory.getLogger(TaskBoardSynchronizer.class);
     private static final int MAX_COMMENT_DETAILS = 500;
 
+    /** Trello rejects comments over 16 384 characters; keep room for the header and the note. */
+    static final int MAX_RESULT_LENGTH = 15_000;
+
     /** Events after which the card's column or content may be out of date. */
     private static final Set<TaskEventType> SYNC_EVENTS = EnumSet.of(
             TaskEventType.TASK_CREATED, TaskEventType.TASK_ASSIGNED, TaskEventType.EXECUTION_STARTED,
@@ -84,6 +87,7 @@ public class TaskBoardSynchronizer {
             }
             String cardId = card.id();
             comment(event).ifPresent(text -> board.addComment(cardId, text));
+            resultComment(event, view).ifPresent(text -> board.addComment(cardId, text));
         } catch (RuntimeException ex) {
             log.warn("event=TRELLO_SYNC_FAILED taskId={} trigger={} reason=\"{}\"", event.taskId(), event.type(), ex.getMessage());
             transactions.executeWithoutResult(status -> recorder.record(TaskEvent.of(event.taskId(),
@@ -123,6 +127,25 @@ public class TaskBoardSynchronizer {
             recorder.record(TaskEvent.of(trigger.taskId(), TaskEventType.TRELLO_UPDATED, TaskEvent.SYSTEM, details,
                     clock.instant()));
         });
+    }
+
+    /**
+     * The approved deliverable, posted once the task is done (or waits for approval) so it can be
+     * read on the card itself. The card description keeps only the summary.
+     */
+    static Optional<String> resultComment(TaskEvent event, TaskCard view) {
+        boolean finished = event.type() == TaskEventType.TASK_COMPLETED
+                || event.type() == TaskEventType.HUMAN_APPROVAL_REQUESTED;
+        AgentExecution work = view.latestWork();
+        if (!finished || work == null || work.output() == null || work.output().isBlank()) {
+            return Optional.empty();
+        }
+        String output = work.output().strip();
+        if (output.length() > MAX_RESULT_LENGTH) {
+            output = output.substring(0, MAX_RESULT_LENGTH)
+                    + "\n\n… (truncated; full result in GET /api/v1/tasks/" + view.task().id() + "/executions)";
+        }
+        return Optional.of("📄 **Result** (" + displayName(work.agentType()) + ")\n\n" + output);
     }
 
     static Optional<String> comment(TaskEvent event) {

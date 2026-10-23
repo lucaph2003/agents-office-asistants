@@ -7,7 +7,7 @@ import com.lucapodesta.agentoffice.domain.task.TaskStatus;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
-/** Renders a task as a Trello card. Full agent output stays in the API, not on the card. */
+/** Renders a task as a Trello card. The description holds the summary; the full result is posted as a comment. */
 final class TrelloCardFormatter {
 
     private static final int MAX_DESCRIPTION = 1_500;
