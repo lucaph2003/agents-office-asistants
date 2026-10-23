@@ -23,3 +23,6 @@ target/
 
 # n8n credentials with real secrets (copy of n8n/credentials.example.json)
 n8n/credentials/credentials.json
+
+# Runtime state of scripts/start.sh (tunnel pid and log)
+.run/

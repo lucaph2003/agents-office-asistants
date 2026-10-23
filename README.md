@@ -205,6 +205,8 @@ Java 21 Â· Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security, Actuator) Â
 
 ## Running locally
 
+A step-by-step setup guide in Spanish is in [docs/instalacion.md](docs/instalacion.md).
+
 Requirements: Docker and [Ollama](https://ollama.com) on the host (recommended on macOS, where containers cannot use the GPU).
 
 ```bash
@@ -225,6 +227,13 @@ Try it without Telegram or Trello:
 curl -X POST localhost:8080/api/v1/tasks \
   -H "X-Api-Key: $AGENT_OFFICE_API_KEY" -H 'Content-Type: application/json' \
   -d '{"title": "Java 21 migration plan", "description": "Prepare a technical plan to migrate service X from Java 11 to Java 21"}'
+```
+
+On a Mac with Telegram set up, two scripts do everything (Docker, Ollama, the Telegram tunnel and its webhook, the stack):
+
+```bash
+scripts/start.sh          # add --build after code changes
+scripts/stop.sh           # --all also quits Ollama and stops OrbStack (and every other container)
 ```
 
 Ollama in a container instead of on the host:
