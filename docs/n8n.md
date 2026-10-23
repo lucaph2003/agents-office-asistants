@@ -82,7 +82,10 @@ cloudflared tunnel --url http://localhost:5678
 ```
 
 Set the printed `https://…` URL as `N8N_WEBHOOK_URL` and restart n8n. Quick tunnels change URL on every start;
-a named tunnel or a fixed ngrok domain avoids re-activating the workflow each time.
+`scripts/start.sh` takes care of that: it starts the tunnel, writes the URL to `.env`, starts the stack and points the
+bot webhook at the new URL. n8n itself only registers the webhook when a workflow is activated from a running instance,
+not when it restarts, which is why the script sets it directly. A named tunnel or a fixed ngrok domain avoids the URL
+change altogether.
 
 ### 3. Import credentials and workflows
 
