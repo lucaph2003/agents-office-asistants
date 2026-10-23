@@ -2,11 +2,14 @@ package com.lucapodesta.agentoffice.infrastructure.trello;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.lucapodesta.agentoffice.application.port.out.BoardCard;
+import com.lucapodesta.agentoffice.application.port.out.InboxCard;
 import com.lucapodesta.agentoffice.application.port.out.TaskBoardPort;
 import com.lucapodesta.agentoffice.application.port.out.TaskCard;
 import com.lucapodesta.agentoffice.domain.exception.TaskBoardException;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -61,6 +64,19 @@ class TrelloTaskBoardAdapter implements TaskBoardPort {
                 .toBodilessEntity());
     }
 
+    @Override
+    public List<InboxCard> inboxCards() {
+        List<CardResponse> cards = call("read inbox", () -> restClient.get()
+                .uri("/1/lists/{id}/cards?fields=id,name,desc,url,shortUrl", lists.inbox())
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<CardResponse>>() { }));
+        return cards == null ? List.of() : cards.stream()
+                .filter(card -> card.id() != null && card.name() != null && !card.name().isBlank())
+                .map(card -> new InboxCard(card.id(), card.shortUrl() != null ? card.shortUrl() : card.url(),
+                        card.name(), card.desc()))
+                .toList();
+    }
+
     private static <T> T call(String operation, Supplier<T> request) {
         try {
             return request.get();
@@ -72,6 +88,6 @@ class TrelloTaskBoardAdapter implements TaskBoardPort {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record CardResponse(String id, String url, String shortUrl) {
+    record CardResponse(String id, String name, String desc, String url, String shortUrl) {
     }
 }

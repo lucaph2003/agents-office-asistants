@@ -72,6 +72,7 @@ services:
     environment:
       AGENT_OFFICE_API_URL: http://agent-office-core:8080
       TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS:-}
+      TELEGRAM_DEFAULT_CHAT_ID: ${TELEGRAM_DEFAULT_CHAT_ID:-}
       WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
       # The workflows read the variables above.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"

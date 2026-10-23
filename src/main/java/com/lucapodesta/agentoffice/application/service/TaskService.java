@@ -7,7 +7,9 @@ import com.lucapodesta.agentoffice.application.dto.TaskFilter;
 import com.lucapodesta.agentoffice.application.dto.TaskExecutionRequestedEvent;
 import com.lucapodesta.agentoffice.application.dto.TaskSubmittedEvent;
 import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.BoardCard;
 import com.lucapodesta.agentoffice.application.port.out.BoardCardRepository;
+import com.lucapodesta.agentoffice.application.port.out.InboxCard;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
@@ -18,6 +20,7 @@ import com.lucapodesta.agentoffice.domain.review.Review;
 import com.lucapodesta.agentoffice.domain.task.Task;
 import com.lucapodesta.agentoffice.domain.task.TaskEvent;
 import com.lucapodesta.agentoffice.domain.task.TaskEventType;
+import com.lucapodesta.agentoffice.domain.task.TaskSource;
 import com.lucapodesta.agentoffice.domain.task.TaskStatus;
 import java.time.Clock;
 import java.time.Instant;
@@ -67,6 +70,23 @@ public class TaskService {
         recorder.record(TaskEvent.of(task.id(), TaskEventType.TASK_CREATED, TaskEvent.USER,
                 "source=%s priority=%s".formatted(task.source(), task.priority()), now));
         publisher.publishEvent(new TaskSubmittedEvent(task.id()));
+        return task;
+    }
+
+    /**
+     * Turns a card the user added to the board's inbox into a task. The card is linked in the
+     * same transaction, so the board sync moves that card instead of creating a second one.
+     */
+    @Transactional
+    public Task importFromBoard(InboxCard card) {
+        String name = card.title().strip();
+        String title = name.length() <= Task.MAX_TITLE_LENGTH ? name : name.substring(0, Task.MAX_TITLE_LENGTH - 1) + "…";
+        String description = card.description() == null || card.description().isBlank() ? name : card.description();
+        if (description.length() > Task.MAX_DESCRIPTION_LENGTH) {
+            description = description.substring(0, Task.MAX_DESCRIPTION_LENGTH);
+        }
+        Task task = create(new CreateTaskCommand(title, description, null, TaskSource.TRELLO, card.id(), false));
+        boardCards.save(task.id(), new BoardCard(card.id(), card.url(), task.status()));
         return task;
     }
 

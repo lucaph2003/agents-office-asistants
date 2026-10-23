@@ -22,6 +22,7 @@ limits and outages, and users can move cards by hand.
 ## Consequences
 
 - The pipeline works with Trello disabled or down; the board catches up on the next change.
-- There is no Trello → Agent Office sync in V1, so no Trello webhook endpoint either.
+- The only Trello → Agent Office direction is the inbox: new cards there become tasks
+  ([ADR 008](008-trello-inbox-as-durable-intake.md)). Moving existing cards by hand still changes nothing.
 - Creating a task waits for the card to be created (bounded by a 5 s timeout), which lets the API response, and the
   Telegram reply, include the card link.

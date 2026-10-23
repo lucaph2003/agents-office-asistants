@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
@@ -41,5 +42,13 @@ class BoardCardPersistenceAdapter implements BoardCardRepository {
     public Map<UUID, BoardCard> findByTaskIds(Collection<UUID> taskIds) {
         return jpa.findAllById(taskIds).stream()
                 .collect(Collectors.toMap(BoardCardEntity::taskId, BoardCardEntity::toDomain));
+    }
+
+    @Override
+    public Set<String> linkedCardIds(Collection<String> cardIds) {
+        if (cardIds.isEmpty()) {
+            return Set.of();
+        }
+        return jpa.findByCardIdIn(cardIds).stream().map(BoardCardEntity::cardId).collect(Collectors.toSet());
     }
 }

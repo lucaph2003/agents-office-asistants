@@ -4,8 +4,10 @@ import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository
 import com.lucapodesta.agentoffice.application.port.out.BoardCardRepository;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
+import com.lucapodesta.agentoffice.application.service.BoardIntake;
 import com.lucapodesta.agentoffice.application.service.TaskBoardSynchronizer;
 import com.lucapodesta.agentoffice.application.service.TaskEventRecorder;
+import com.lucapodesta.agentoffice.application.service.TaskService;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
@@ -43,6 +45,11 @@ class TrelloConfig {
         TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
         requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         return new TaskBoardSynchronizer(board, cards, tasks, executions, reviews, recorder, requiresNew, clock);
+    }
+
+    @Bean
+    BoardIntake boardIntake(TrelloTaskBoardAdapter board, BoardCardRepository cards, TaskService tasks) {
+        return new BoardIntake(board, cards, tasks);
     }
 
     @Bean

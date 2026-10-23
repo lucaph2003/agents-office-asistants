@@ -3,6 +3,7 @@ package com.lucapodesta.agentoffice.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.lucapodesta.agentoffice.application.port.out.BoardCard;
+import com.lucapodesta.agentoffice.application.port.out.InboxCard;
 import com.lucapodesta.agentoffice.application.port.out.TaskBoardPort;
 import com.lucapodesta.agentoffice.application.port.out.TaskCard;
 import com.lucapodesta.agentoffice.application.support.InMemoryStore;
@@ -173,6 +174,11 @@ class TaskBoardSynchronizerTest {
         @Override
         public void addComment(String cardId, String text) {
             calls.add("comment " + cardId + " " + text);
+        }
+
+        @Override
+        public List<InboxCard> inboxCards() {
+            return List.of();
         }
 
         private void failIfAsked(String operation) {

@@ -1,5 +1,7 @@
 # Agent Office
 
+![Agent Office architecture: Telegram connects through n8n to the Agent Office Core, which coordinates Manager, Developer or Research, and Reviewer agents with Ollama, Trello, and PostgreSQL.](docs/assets/agent-office-hero.png)
+
 Agent Office is a local-first AI agent workspace that turns user goals into traceable tasks, assigns them to specialized agents, coordinates execution and review, and exposes the workflow through Telegram and Trello.
 
 This project is designed as both a practical personal automation system and a demonstration of backend architecture, AI orchestration and enterprise integration patterns.
@@ -187,6 +189,8 @@ One card per task, moved across `📥 Inbox → 📋 Planned → 🤖 In Progres
 TRELLO_API_KEY=... TRELLO_TOKEN=... scripts/trello-setup.sh   # creates the board and prints the TRELLO_* lines for .env
 ```
 
+The Inbox column is also a **durable entry point**. A card added there by hand, for example from the Trello mobile app while this machine is off for days, becomes a task the next time the system runs: n8n calls `POST /api/v1/board/sync` every minute, each unlinked card turns into a task on that same card, and the result is sent to `TELEGRAM_DEFAULT_CHAT_ID`. Telegram itself only keeps undelivered bot messages for 24 hours.
+
 ### Ollama
 
 Agents depend on `LanguageModelPort`; `OllamaLanguageModelAdapter` is today's only implementation, and another provider would be one more adapter. Connection failures and 5xx responses are retried once, timeouts are not, and a missing model fails with `AGENT_NOT_AVAILABLE` plus the exact `ollama pull` command. Any model works; `qwen3:8b` is the default and one model can serve every agent.
@@ -247,7 +251,7 @@ Everything is configured through environment variables; [`.env.example`](.env.ex
 | API | `AGENT_OFFICE_API_KEY` (required), `AGENT_OFFICE_PORT`, `PIPELINE_AUTO_START` |
 | Ollama | `OLLAMA_BASE_URL` (host runs), `OLLAMA_BASE_URL_DOCKER` (container), `OLLAMA_MODEL`, `OLLAMA_MODEL_{MANAGER,RESEARCH,DEVELOPER,REVIEWER}`, `OLLAMA_READ_TIMEOUT` |
 | Trello | `TRELLO_ENABLED`, `TRELLO_API_KEY`, `TRELLO_TOKEN`, `TRELLO_BOARD_ID`, `TRELLO_LIST_{INBOX,PLANNED,IN_PROGRESS,REVIEW,BLOCKED,DONE}` |
-| n8n / Telegram | `TELEGRAM_ALLOWED_CHAT_IDS`, `N8N_WEBHOOK_URL`, `N8N_NOTIFICATIONS_ENABLED`, `N8N_TASK_COMPLETED_WEBHOOK_URL`, `N8N_WEBHOOK_TOKEN` |
+| n8n / Telegram | `TELEGRAM_ALLOWED_CHAT_IDS`, `TELEGRAM_DEFAULT_CHAT_ID`, `N8N_WEBHOOK_URL`, `N8N_NOTIFICATIONS_ENABLED`, `N8N_TASK_COMPLETED_WEBHOOK_URL`, `N8N_WEBHOOK_TOKEN` |
 
 Integrations are off until enabled, and enabled integrations fail fast at startup with the list of missing settings. Profiles: default (containers), `local` (host development), `test`.
 
@@ -256,7 +260,8 @@ Integrations are off until enabled, and enabled integrations fail fast at startu
 | Workflow | Trigger | Does |
 |---|---|---|
 | [`telegram-task-intake.json`](n8n/telegram-task-intake.json) | Telegram message | Parse command → call the API → reply |
-| [`task-completed-notification.json`](n8n/task-completed-notification.json) | Webhook from Agent Office | Format result, failure or block reason → send to the originating chat |
+| [`task-completed-notification.json`](n8n/task-completed-notification.json) | Webhook from Agent Office | Format result, failure or block reason → send to the originating chat (or the owner's, for Trello tasks) |
+| [`trello-sync.json`](n8n/trello-sync.json) | Every minute | Turn new cards in the Trello Inbox into tasks |
 
 Credentials are never versioned. `n8n/credentials/credentials.example.json` has the right ids, so after filling in the secrets the workflows and credentials are imported and linked with two commands, described in [docs/n8n.md](docs/n8n.md).
 
@@ -274,6 +279,7 @@ Interactive documentation with schemas, enums, errors and headers: <http://local
 | `GET` | `/api/v1/tasks/{id}/executions` | Every agent call with model, prompt version and output |
 | `GET` | `/api/v1/tasks/{id}/reviews` | Reviewer verdicts |
 | `GET` | `/api/v1/tasks/{id}/events` | Audit trail |
+| `POST` | `/api/v1/board/sync` | Turn new Trello Inbox cards into tasks (only with Trello enabled) |
 
 All errors share one shape, with codes such as `TASK_NOT_FOUND`, `INVALID_TASK_STATE`, `VALIDATION_ERROR`, `UNAUTHORIZED` and `CONCURRENT_MODIFICATION`:
 
@@ -338,6 +344,7 @@ JaCoCo merges unit and integration coverage and fails the build if any `domain` 
 | [005](docs/adr/005-agent-execution-model.md) | Tasks, executions and reviews as separate records |
 | [006](docs/adr/006-spring-boot-4.md) | Spring Boot 4 instead of 3.x |
 | [007](docs/adr/007-integrations-react-to-committed-events.md) | Integrations react to committed audit events |
+| [008](docs/adr/008-trello-inbox-as-durable-intake.md) | The Trello inbox as a durable entry point |
 
 ## Trade-offs
 

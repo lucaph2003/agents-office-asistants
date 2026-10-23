@@ -3,6 +3,7 @@ package com.lucapodesta.agentoffice.infrastructure.trello;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.any;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
@@ -94,6 +95,36 @@ class TrelloBoardSyncIT extends AbstractIntegrationTest {
                         "Card moved to REVIEW", "Card moved to DONE");
         assertThat(trello.getAllServeEvents()).allSatisfy(event -> assertThat(event.getRequest().getUrl())
                 .doesNotContain("test-token").doesNotContain("test-key"));
+    }
+
+    @Test
+    void cardDroppedInTheInboxBecomesATaskOnThatSameCard() throws Exception {
+        trello.stubFor(get(urlEqualTo("/1/lists/list-inbox/cards?fields=id,name,desc,url,shortUrl")).willReturn(okJson("""
+                [{"id": "manual-card", "name": "Ideas for a Valencia video", "desc": "Short and cinematic",
+                  "shortUrl": "https://trello.com/c/manual"}]
+                """)));
+        trello.stubFor(put("/1/cards/manual-card").willReturn(ok()));
+        trello.stubFor(post("/1/cards/manual-card/actions/comments").willReturn(okJson("{}")));
+
+        MvcTestResult first = mvc.post().uri("/api/v1/board/sync").exchange();
+        assertThat(first).hasStatusOk();
+        assertThat(first).bodyJson().extractingPath("$.imported").asNumber().isEqualTo(1);
+        String id = JsonPath.read(first.getResponse().getContentAsString(), "$.taskIds[0]");
+
+        assertThat(mvc.post().uri("/api/v1/board/sync")).bodyJson()
+                .extractingPath("$.imported").asNumber().isEqualTo(0);
+
+        awaitStatus(id, "DONE");
+        MvcTestResult task = mvc.get().uri("/api/v1/tasks/{id}", id).exchange();
+        assertThat(task).bodyJson().extractingPath("$.source").isEqualTo("TRELLO");
+        assertThat(task).bodyJson().extractingPath("$.title").isEqualTo("Ideas for a Valencia video");
+        assertThat(task).bodyJson().extractingPath("$.description").isEqualTo("Short and cinematic");
+        assertThat(task).bodyJson().extractingPath("$.boardUrl").isEqualTo("https://trello.com/c/manual");
+        trello.verify(0, postRequestedFor(urlEqualTo("/1/cards")));
+        List<String> columns = trello.findAll(putRequestedFor(urlEqualTo("/1/cards/manual-card"))).stream()
+                .map(request -> JsonPath.<String>read(request.getBodyAsString(), "$.idList"))
+                .toList();
+        assertThat(columns).containsSubsequence("list-planned", "list-in-progress", "list-review", "list-done");
     }
 
     @Test

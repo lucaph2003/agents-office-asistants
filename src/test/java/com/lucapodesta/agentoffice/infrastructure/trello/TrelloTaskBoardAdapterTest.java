@@ -4,6 +4,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
@@ -18,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.lucapodesta.agentoffice.application.port.out.BoardCard;
+import com.lucapodesta.agentoffice.application.port.out.InboxCard;
 import com.lucapodesta.agentoffice.application.port.out.TaskCard;
 import com.lucapodesta.agentoffice.domain.exception.ErrorCode;
 import com.lucapodesta.agentoffice.domain.exception.TaskBoardException;
@@ -102,6 +104,20 @@ class TrelloTaskBoardAdapterTest {
                 .hasMessageStartingWith("Trello update card failed: ");
         assertThatThrownBy(() -> adapter().createCard(new TaskCard(task, null, null)))
                 .hasMessage("Trello did not return the created card");
+    }
+
+    @Test
+    void readsTheInboxColumn() {
+        trello.stubFor(get(urlEqualTo(
+                "/1/lists/l-inbox/cards?fields=id,name,desc,url,shortUrl")).willReturn(okJson("""
+                [{"id": "c1", "name": "Ideas for a Valencia video", "desc": "3 minutes", "shortUrl": "https://trello.com/c/c1"},
+                 {"id": "c2", "name": "No description", "desc": "", "url": "https://trello.com/c/c2/long"},
+                 {"id": "c3", "name": "   "}]
+                """)));
+
+        assertThat(adapter().inboxCards()).containsExactly(
+                new InboxCard("c1", "https://trello.com/c/c1", "Ideas for a Valencia video", "3 minutes"),
+                new InboxCard("c2", "https://trello.com/c/c2/long", "No description", ""));
     }
 
     @Test

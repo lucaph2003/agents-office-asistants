@@ -53,6 +53,10 @@ class BoardCardEntity extends AssignedIdEntity {
         return taskId;
     }
 
+    String cardId() {
+        return cardId;
+    }
+
     @Override
     public UUID getId() {
         return taskId;

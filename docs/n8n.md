@@ -22,7 +22,8 @@ sequenceDiagram
 | File | Trigger | What it does |
 |---|---|---|
 | [`telegram-task-intake.json`](../n8n/telegram-task-intake.json) | Telegram message | Parses the command, calls the Agent Office API, replies in the chat |
-| [`task-completed-notification.json`](../n8n/task-completed-notification.json) | Webhook from Agent Office | Sends the result (or failure / block reason) back to the chat that created the task |
+| [`task-completed-notification.json`](../n8n/task-completed-notification.json) | Webhook from Agent Office | Sends the result (or failure / block reason) back to the chat that created the task; tasks from the Trello inbox go to `TELEGRAM_DEFAULT_CHAT_ID` |
+| [`trello-sync.json`](../n8n/trello-sync.json) | Every minute | Calls `POST /api/v1/board/sync`, which turns new cards in the Trello Inbox into tasks. Only useful with Trello enabled; successful runs are not stored, to keep the execution list clean |
 
 Bot commands:
 
@@ -49,6 +50,7 @@ n8n reads these from its environment (Docker Compose passes them from `.env`):
 |---|---|
 | `AGENT_OFFICE_API_URL` | Where n8n reaches Agent Office, e.g. `http://agent-office-core:8080` |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | Comma-separated chat ids allowed to use the bot. Empty means nobody, so a leaked bot cannot spend your GPU |
+| `TELEGRAM_DEFAULT_CHAT_ID` | Your own chat: receives results of tasks created from the Trello inbox, and `/tasks` there lists every task |
 | `WEBHOOK_URL` | Public HTTPS URL of n8n (set from `N8N_WEBHOOK_URL`); Telegram can only deliver to HTTPS |
 | `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` | Lets the workflows read the variables above |
 
@@ -66,8 +68,9 @@ Agent Office side:
 ### 1. Create the Telegram bot
 
 1. Talk to [@BotFather](https://t.me/BotFather), run `/newbot` and keep the token it gives you.
-2. Send any message to your bot, then open `https://api.telegram.org/bot<token>/getUpdates` and note `message.chat.id`.
-   Put it in `TELEGRAM_ALLOWED_CHAT_IDS`.
+2. Find your chat id: once the workflows are running, send `/start` to the bot; while your chat is not allowed yet,
+   the bot replies with its id. Put it in `TELEGRAM_ALLOWED_CHAT_IDS` (and in `TELEGRAM_DEFAULT_CHAT_ID`) and recreate
+   n8n with `docker compose up -d n8n`.
 
 ### 2. Expose n8n over HTTPS
 
@@ -103,6 +106,7 @@ Publish both workflows, then restart n8n so the CLI change takes effect:
 ```bash
 docker compose exec n8n n8n publish:workflow --id=agentOfficeTaskCompleted
 docker compose exec n8n n8n publish:workflow --id=agentOfficeTelegramIntake
+docker compose exec n8n n8n publish:workflow --id=agentOfficeTrelloSync   # only with Trello enabled
 docker compose restart n8n
 ```
 

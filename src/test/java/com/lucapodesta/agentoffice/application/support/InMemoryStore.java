@@ -20,7 +20,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * In-memory implementation of the persistence ports. Stores rebuilt copies so tests cannot
@@ -106,6 +108,11 @@ public class InMemoryStore {
             Map<UUID, BoardCard> found = new LinkedHashMap<>();
             taskIds.forEach(id -> findByTaskId(id).ifPresent(card -> found.put(id, card)));
             return found;
+        }
+
+        @Override
+        public Set<String> linkedCardIds(Collection<String> cardIds) {
+            return boardCards.values().stream().map(BoardCard::id).filter(cardIds::contains).collect(Collectors.toSet());
         }
     };
 

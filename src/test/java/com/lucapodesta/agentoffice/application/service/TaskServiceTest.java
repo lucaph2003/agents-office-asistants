@@ -12,7 +12,9 @@ import com.lucapodesta.agentoffice.application.dto.TaskEventRecorded;
 import com.lucapodesta.agentoffice.application.dto.TaskExecutionRequestedEvent;
 import com.lucapodesta.agentoffice.application.dto.TaskSubmittedEvent;
 import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.BoardCard;
 import com.lucapodesta.agentoffice.application.port.out.BoardCardRepository;
+import com.lucapodesta.agentoffice.application.port.out.InboxCard;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
@@ -118,6 +120,32 @@ class TaskServiceTest {
 
         assertThatThrownBy(() -> service.execute(task.id())).isInstanceOf(InvalidTaskStateException.class);
         verify(publisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void importedBoardCardBecomesATaskLinkedToThatCard() {
+        when(tasks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Task task = service.importFromBoard(new InboxCard("card-7", "https://trello.com/c/7", "Ideas for a Valencia video",
+                "Short, cinematic, 3 minutes"));
+
+        assertThat(task.source()).isEqualTo(TaskSource.TRELLO);
+        assertThat(task.externalReference()).isEqualTo("card-7");
+        assertThat(task.title()).isEqualTo("Ideas for a Valencia video");
+        assertThat(task.description()).isEqualTo("Short, cinematic, 3 minutes");
+        verify(boardCards).save(task.id(), new BoardCard("card-7", "https://trello.com/c/7", TaskStatus.INBOX));
+        verify(publisher).publishEvent(new TaskSubmittedEvent(task.id()));
+    }
+
+    @Test
+    void importedCardWithoutDescriptionUsesItsTitleAndLongTitlesAreShortened() {
+        when(tasks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String longName = "x".repeat(Task.MAX_TITLE_LENGTH + 50);
+
+        Task task = service.importFromBoard(new InboxCard("card-8", "https://trello.com/c/8", longName, "  "));
+
+        assertThat(task.title()).hasSize(Task.MAX_TITLE_LENGTH).endsWith("…");
+        assertThat(task.description()).isEqualTo(longName);
     }
 
     @Test

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import com.lucapodesta.agentoffice.AbstractIntegrationTest;
 import com.lucapodesta.agentoffice.application.port.out.AgentExecutionRepository;
+import com.lucapodesta.agentoffice.application.port.out.BoardCard;
+import com.lucapodesta.agentoffice.application.port.out.BoardCardRepository;
 import com.lucapodesta.agentoffice.application.port.out.ReviewRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskEventRepository;
 import com.lucapodesta.agentoffice.application.port.out.TaskRepository;
@@ -25,6 +27,7 @@ import com.lucapodesta.agentoffice.domain.task.TaskSource;
 import com.lucapodesta.agentoffice.domain.task.TaskStatus;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -47,6 +50,8 @@ class PersistenceAdaptersIT extends AbstractIntegrationTest {
     private TaskEventRepository events;
     @Autowired
     private PlatformTransactionManager transactionManager;
+    @Autowired
+    private BoardCardRepository boardCards;
 
     @Test
     void taskStateSurvivesRoundTrip() {
@@ -97,6 +102,15 @@ class PersistenceAdaptersIT extends AbstractIntegrationTest {
                 .containsExactly(
                         tuple(TaskEventType.TASK_CREATED, "user"),
                         tuple(TaskEventType.EXECUTION_STARTED, "agent:developer"));
+    }
+
+    @Test
+    void knowsWhichCardsAreAlreadyLinked() {
+        Task task = tasks.save(Task.create("Title", "Description", null, TaskSource.TRELLO, "card-1", false, NOW));
+        boardCards.save(task.id(), new BoardCard("card-1", "https://trello.com/c/1", TaskStatus.INBOX));
+
+        assertThat(boardCards.linkedCardIds(List.of("card-1", "card-2"))).containsExactly("card-1");
+        assertThat(boardCards.linkedCardIds(List.of())).isEmpty();
     }
 
     @Test

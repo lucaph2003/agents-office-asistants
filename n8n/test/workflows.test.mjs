@@ -25,7 +25,7 @@ const parse = codeNode(intake, 'Parse command');
 const format = codeNode(intake, 'Format reply');
 const notify = codeNode(notification, 'Format notification');
 
-const ENV = { TELEGRAM_ALLOWED_CHAT_IDS: '111, 222' };
+const ENV = { TELEGRAM_ALLOWED_CHAT_IDS: '111, 222', TELEGRAM_DEFAULT_CHAT_ID: '111' };
 const telegram = (text, chatId = 111) => ({ update_id: 9001, message: { chat: { id: chatId }, text } });
 const run = (text, chatId) => parse(telegram(text, chatId), ENV).json;
 const reply = (parsed, response) => format(response, ENV, () => ({ item: { json: parsed } })).json;
@@ -62,6 +62,10 @@ test('/tasks lists only this chat', () => {
   const parsed = run('/tasks', 222);
   assert.equal(parsed.method, 'GET');
   assert.equal(parsed.path, '/api/v1/tasks?source=TELEGRAM&externalReference=222&size=10');
+});
+
+test('/tasks from the owner chat also lists tasks created from the Trello inbox', () => {
+  assert.equal(run('/tasks', 111).path, '/api/v1/tasks?size=10');
 });
 
 test('/status, /cancel and /retry need a task id', () => {
@@ -133,6 +137,24 @@ test('blocked tasks explain why and how to resume', () => {
   assert.match(message.json.text, new RegExp(`/retry ${TASK_ID}`));
 });
 
-test('tasks that did not come from Telegram send nothing', () => {
+test('tasks from the Trello inbox are reported to the owner chat', () => {
+  const [message] = notificationFor({ ...COMPLETED, source: 'TRELLO', externalReference: 'trello-card-id' });
+  assert.equal(message.json.chatId, '111');
+  assert.match(message.json.text, /Trello: https:\/\/trello.com\/c\/abc/);
+});
+
+test('API tasks, and Trello tasks without an owner chat, send nothing', () => {
   assert.deepEqual(notificationFor({ ...COMPLETED, source: 'API', externalReference: null }), []);
+  const noOwner = notify(undefined, {}, undefined, { all: () => [{ json: { body: { ...COMPLETED, source: 'TRELLO' } } }] });
+  assert.deepEqual(noOwner, []);
+});
+
+test('the Trello inbox is polled every minute through the sync endpoint', () => {
+  const sync = load('trello-sync.json');
+  const trigger = sync.nodes.find((node) => node.type === 'n8n-nodes-base.scheduleTrigger');
+  const http = sync.nodes.find((node) => node.type === 'n8n-nodes-base.httpRequest');
+  assert.deepEqual(trigger.parameters.rule.interval, [{ field: 'minutes', minutesInterval: 1 }]);
+  assert.equal(http.parameters.method, 'POST');
+  assert.match(http.parameters.url, /\/api\/v1\/board\/sync$/);
+  assert.equal(http.credentials.httpHeaderAuth.id, 'agent-office-api-key');
 });
