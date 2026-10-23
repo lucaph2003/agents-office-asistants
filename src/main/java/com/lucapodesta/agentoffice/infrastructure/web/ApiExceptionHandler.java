@@ -8,6 +8,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -91,6 +92,9 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
             HttpStatusCode statusCode, WebRequest request) {
         HttpStatus status = HttpStatus.valueOf(statusCode.value());
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+        log.info("event=REQUEST_REJECTED status={} exception={} cause=\"{}\"", status.value(),
+                ex.getClass().getSimpleName(), abbreviate(cause.getClass().getSimpleName() + ": " + cause.getMessage()));
         String code = status == HttpStatus.BAD_REQUEST ? ErrorCode.VALIDATION_ERROR.name() : status.name();
         String message = body instanceof ProblemDetail problem && problem.getDetail() != null
                 ? problem.getDetail()
@@ -108,6 +112,11 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private ErrorResponse body(String code, String message, List<String> details) {
         return new ErrorResponse(code, message, MDC.get(CorrelationIdFilter.MDC_KEY), clock.instant(), details);
+    }
+
+    /** Enough to diagnose a bad request without copying request content into the logs. */
+    private static String abbreviate(String text) {
+        return text.length() <= 160 ? text : text.substring(0, 160) + "…";
     }
 
     private static String parameterName(ParameterValidationResult result) {

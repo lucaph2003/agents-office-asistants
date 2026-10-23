@@ -14,6 +14,13 @@ function codeNode(workflow, name) {
   return new Function('$json', '$env', '$', '$input', node.parameters.jsCode);
 }
 
+test('the API call always sends its JSON body', () => {
+  // n8n does not evaluate expressions in "sendBody": an expression there silently sends no body.
+  const http = intake.nodes.find((node) => node.name === 'Call Agent Office');
+  assert.equal(http.parameters.sendBody, true);
+  assert.equal(http.parameters.specifyBody, 'json');
+});
+
 const parse = codeNode(intake, 'Parse command');
 const format = codeNode(intake, 'Format reply');
 const notify = codeNode(notification, 'Format notification');
@@ -78,6 +85,7 @@ test('/start, /help, unknown commands and plain text show the help', () => {
 
 test('chats outside the allow list are refused, and an empty list refuses everyone', () => {
   assert.match(run('/tasks', 333).text, /not allowed/);
+  assert.match(run('/tasks', 333).text, /add <code>333<\/code> to TELEGRAM_ALLOWED_CHAT_IDS/);
   assert.match(parse(telegram('/tasks'), {}).json.text, /not allowed/);
 });
 
