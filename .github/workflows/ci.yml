@@ -73,6 +73,27 @@ jobs:
       - name: Test workflow Code nodes
         run: node --test n8n/test/*.test.mjs
 
+  office-ui:
+    name: Office view
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: office-ui
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: office-ui/package-lock.json
+
+      - run: npm ci
+      # Choreography unit tests, then type check and production build.
+      - run: npm test
+      - run: npm run build
+
   docker:
     name: Docker image
     needs: build

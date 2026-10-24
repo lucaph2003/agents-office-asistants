@@ -98,6 +98,8 @@ scripts/start.sh          # prender (agregá --build si cambiaste código)
 scripts/stop.sh           # apagar (agregá --all para cerrar también Ollama y OrbStack)
 ```
 
+Para ver la aldea pixel-art con los agentes trabajando en vivo, arrancá con `scripts/start.sh --office` y abrí <http://localhost:5173>. Necesita Node 22 (`brew install node`); el primer arranque instala sus dependencias. Más detalles en [office.md](office.md).
+
 Los datos se guardan en volúmenes de Docker: apagar no borra nada.
 
 ## Problemas comunes

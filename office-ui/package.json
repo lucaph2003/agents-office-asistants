@@ -1,0 +1,21 @@
+{
+  "name": "agent-office-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pixel-art office that shows Agent Office tasks moving between agents in real time",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "3.2.7"
+  }
+}

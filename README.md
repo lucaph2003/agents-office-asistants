@@ -195,6 +195,12 @@ The Inbox column is also a **durable entry point**. A card added there by hand, 
 
 Agents depend on `LanguageModelPort`; `OllamaLanguageModelAdapter` is today's only implementation, and another provider would be one more adapter. Connection failures and 5xx responses are retried once, timeouts are not, and a missing model fails with `AGENT_NOT_AVAILABLE` plus the exact `ollama pull` command. Any model works; `qwen3:8b` is the default and one model can serve every agent.
 
+### Office view
+
+A cozy pixel-art village in [`office-ui/`](office-ui) that shows each task as a courier carrying a letter between the agents' cottages in real time: thinking bubbles over a steaming mug while a model works, stamps for review verdicts, blocked tasks waiting out the rain on the porch, a bluebird flying off to Telegram, and light that follows the time of day. It is a fourth listener on the committed audit events, fed by `GET /api/v1/office/stream`. Start it with `scripts/start.sh --office`; details in [docs/office.md](docs/office.md).
+
+![Office view: cottages for the mail room, Manager, Developer, Research and Reviewer around a garden path, with tasks on their way.](docs/assets/office-village.jpg)
+
 ### n8n
 
 Two versioned workflows in [`n8n/`](n8n): Telegram intake and task-completed notification. Their logic lives in Code nodes that are unit-tested with Node. Setup, credentials and security: [docs/n8n.md](docs/n8n.md).
@@ -288,6 +294,7 @@ Interactive documentation with schemas, enums, errors and headers: <http://local
 | `GET` | `/api/v1/tasks/{id}/executions` | Every agent call with model, prompt version and output |
 | `GET` | `/api/v1/tasks/{id}/reviews` | Reviewer verdicts |
 | `GET` | `/api/v1/tasks/{id}/events` | Audit trail |
+| `GET` | `/api/v1/office/stream` | Server-sent events, one per committed audit event, for the office view |
 | `POST` | `/api/v1/board/sync` | Turn new Trello Inbox cards into tasks (only with Trello enabled) |
 
 All errors share one shape, with codes such as `TASK_NOT_FOUND`, `INVALID_TASK_STATE`, `VALIDATION_ERROR`, `UNAUTHORIZED` and `CONCURRENT_MODIFICATION`:

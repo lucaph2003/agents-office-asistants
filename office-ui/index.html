@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Office Village</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=block" rel="stylesheet" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #3e5c3a; overflow: hidden; }
+      #game { position: relative; width: 100vw; height: 100vh; }
+      /* A soft warm vignette, like late afternoon light. */
+      #glow {
+        position: absolute; inset: 0; pointer-events: none; z-index: 2;
+        background: radial-gradient(ellipse at center, transparent 60%, rgba(74, 47, 39, 0.35) 100%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"><div id="glow"></div></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -16,6 +16,13 @@ if [[ -f .run/tunnel.pid ]]; then
   rm -f .run/tunnel.pid
 fi
 
+if [[ -f .run/office.pid ]]; then
+  # npm starts Vite as a child process, so stop the whole group.
+  pkill -TERM -P "$(cat .run/office.pid)" 2>/dev/null || true
+  kill "$(cat .run/office.pid)" 2>/dev/null && echo "Office view stopped"
+  rm -f .run/office.pid
+fi
+
 # SIGTERM to matching processes. pkill exits 1 when nothing matched, which is fine here
 # (e.g. Ollama's server already exited with its app); other exit codes are real errors.
 terminate() {

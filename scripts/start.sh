@@ -2,8 +2,20 @@
 # Starts everything Agent Office needs on a Mac: OrbStack/Docker, Ollama, the HTTPS tunnel for
 # Telegram and the Docker Compose stack. Safe to run when things are already up.
 #
-# Usage: scripts/start.sh [--build]     --build rebuilds the app image first
+# Usage: scripts/start.sh [--build] [--office]
+#   --build   rebuilds the app image first
+#   --office  also serves the pixel-art office view (office-ui/) on http://localhost:5173
 set -euo pipefail
+
+BUILD=false
+OFFICE=false
+for arg in "$@"; do
+  case "$arg" in
+    --build) BUILD=true ;;
+    --office) OFFICE=true ;;
+    *) printf '✖ Unknown option %s\n' "$arg" >&2; exit 1 ;;
+  esac
+done
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -56,7 +68,7 @@ else
 fi
 
 step "Agent Office stack"
-if [[ "${1:-}" == "--build" ]]; then
+if [[ "$BUILD" == "true" ]]; then
   docker compose up --build -d --wait
 else
   docker compose up -d --wait
@@ -86,6 +98,19 @@ PY
   echo "  Telegram delivers to the new tunnel"
 fi
 
+if [[ "$OFFICE" == "true" ]]; then
+  step "Office view"
+  command -v npm >/dev/null 2>&1 || fail "npm is required for --office (brew install node)"
+  if [[ -f "$RUN_DIR/office.pid" ]] && kill -0 "$(cat "$RUN_DIR/office.pid")" 2>/dev/null; then
+    kill "$(cat "$RUN_DIR/office.pid")"
+  fi
+  [[ -d office-ui/node_modules ]] || npm --prefix office-ui ci --no-audit --no-fund >/dev/null
+  nohup npm --prefix office-ui run dev -- --strictPort > "$RUN_DIR/office.log" 2>&1 &
+  echo $! > "$RUN_DIR/office.pid"
+  wait_for 30 "Office view" curl -sf -m 2 "http://localhost:${OFFICE_UI_PORT:-5173}"
+  echo "  Office view is running"
+fi
+
 set -a
 # shellcheck source=/dev/null
 . ./.env
@@ -93,6 +118,9 @@ set +a
 printf '\n✔ Agent Office is up\n'
 printf '  API docs  http://localhost:%s/swagger-ui.html\n' "${AGENT_OFFICE_PORT:-8080}"
 printf '  n8n       http://localhost:%s\n' "${N8N_PORT:-5678}"
+if [[ "$OFFICE" == "true" ]]; then
+  printf '  Office    http://localhost:%s\n' "${OFFICE_UI_PORT:-5173}"
+fi
 if [[ "${TRELLO_ENABLED:-false}" == "true" ]]; then
   printf '  Trello    https://trello.com/b/%s\n' "${TRELLO_BOARD_ID}"
 fi

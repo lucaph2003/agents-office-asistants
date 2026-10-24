@@ -60,6 +60,11 @@ agent-office:
       blocked: ${TRELLO_LIST_BLOCKED:}
       done: ${TRELLO_LIST_DONE:}
 
+  office:
+    # Live event stream for the pixel-art office view in office-ui/.
+    enabled: ${OFFICE_STREAM_ENABLED:true}
+    heartbeat: 15s
+
   notifications:
     n8n:
       enabled: ${N8N_NOTIFICATIONS_ENABLED:false}
